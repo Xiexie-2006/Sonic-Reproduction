@@ -1,0 +1,212 @@
+import socket
+import numpy as np
+
+from net.socket_utils import send_data, recv_data
+from net.profiler import reset_stats, print_report, time_block
+
+from mpc.share import share_arith, reconstruct_arith
+from mpc.fixed_point import encode_fixed, decode_fixed
+from mpc.triple_pool import setup_triple_pool
+from mpc.conv2d_fixed import conv2d_secret_fixed
+
+
+HOST = "127.0.0.1"
+PORT = 9000
+
+
+def plain_conv2d_nchw(x, w, b=None, stride=1, padding=0):
+    """
+    明文 Conv2D，用于验证 MPC 输出。
+    x: [N, C_in, H, W]
+    w: [C_out, C_in, kH, kW]
+    b: [C_out]
+    """
+
+    if isinstance(stride, int):
+        stride = (stride, stride)
+
+    if isinstance(padding, int):
+        padding = (padding, padding)
+
+    stride_h, stride_w = stride
+    pad_h, pad_w = padding
+
+    n, c_in, h, width = x.shape
+    c_out, _, k_h, k_w = w.shape
+
+    x_pad = np.pad(
+        x,
+        pad_width=((0, 0), (0, 0), (pad_h, pad_h), (pad_w, pad_w)),
+        mode="constant",
+        constant_values=0.0
+    )
+
+    h_pad = h + 2 * pad_h
+    w_pad = width + 2 * pad_w
+
+    out_h = (h_pad - k_h) // stride_h + 1
+    out_w = (w_pad - k_w) // stride_w + 1
+
+    y = np.zeros((n, c_out, out_h, out_w), dtype=np.float64)
+
+    for ni in range(n):
+        for oc in range(c_out):
+            for oh in range(out_h):
+                for ow in range(out_w):
+                    acc = 0.0
+
+                    for ic in range(c_in):
+                        for kh in range(k_h):
+                            for kw in range(k_w):
+                                ih = oh * stride_h + kh
+                                iw = ow * stride_w + kw
+                                acc += x_pad[ni, ic, ih, iw] * w[oc, ic, kh, kw]
+
+                    if b is not None:
+                        acc += b[oc]
+
+                    y[ni, oc, oh, ow] = acc
+
+    return y
+
+
+def main():
+    reset_stats()
+
+    s = socket.socket()
+    s.connect((HOST, PORT))
+
+    scale_bits = 8
+    stride = 1
+    padding = 0
+
+    # 输入：N=1, C=1, H=3, W=3
+    X_plain = np.array([
+        [
+            [
+                [0.5, 1.0, 1.5],
+                [2.0, 2.5, 3.0],
+                [3.5, 4.0, 4.5]
+            ]
+        ]
+    ], dtype=np.float64)
+
+    # 卷积核：C_out=1, C_in=1, kH=2, kW=2
+    W_plain = np.array([
+        [
+            [
+                [1.0, 0.0],
+                [0.0, 1.0]
+            ]
+        ]
+    ], dtype=np.float64)
+
+    b_plain = np.array([0.25], dtype=np.float64)
+
+    Y_expected = plain_conv2d_nchw(
+        x=X_plain,
+        w=W_plain,
+        b=b_plain,
+        stride=stride,
+        padding=padding
+    )
+
+    # fixed-point 编码
+    X = encode_fixed(X_plain, scale_bits)
+    W = encode_fixed(W_plain, scale_bits)
+
+    # Conv 后输出是 2f scale，所以 bias 编码到 2f
+    b = encode_fixed(b_plain, scale_bits * 2)
+
+    # secret share
+    X0, X1 = share_arith(X)
+    W0, W1 = share_arith(W)
+    b0, b1 = share_arith(b)
+
+    # 当前 Conv im2col 后：
+    # rows = N * out_h * out_w = 1 * 2 * 2 = 4
+    # out_channels = 1
+    # secure_mul shape = (4, 1)
+    #
+    # Trunc 输入 shape = [1, 1, 2, 2]
+    conv_mul_shape = (4, 1)
+    trunc_shape = (1, 1, 2, 2)
+
+    arith_plan = [
+        (conv_mul_shape, 30),
+        (trunc_shape, 80),
+    ]
+
+    bit_plan = [
+        (trunc_shape, 120),
+    ]
+
+    with time_block("total_time"):
+
+        send_data(s, (
+            "FIXED_CONV2D_CONFIG",
+            arith_plan,
+            bit_plan
+        ))
+
+        with time_block("offline_time"):
+            setup_triple_pool(
+                conn=s,
+                party_id=0,
+                arith_plan=arith_plan,
+                bit_plan=bit_plan
+            )
+
+        send_data(s, (
+            X1,
+            W1,
+            b1,
+            scale_bits,
+            stride,
+            padding
+        ))
+
+        with time_block("online_time"):
+            Y0 = conv2d_secret_fixed(
+                x_i=X0,
+                w_i=W0,
+                b_i=b0,
+                scale_bits=scale_bits,
+                conn=s,
+                party_id=0,
+                stride=stride,
+                padding=padding
+            )
+
+            Y1 = recv_data(s)
+
+    Y_ring = reconstruct_arith(Y0, Y1)
+    Y_mpc = decode_fixed(Y_ring, scale_bits)
+
+    diff = np.abs(Y_mpc - Y_expected)
+
+    print("===== Fixed-point Secret Conv2D Test =====")
+    print("X_plain =")
+    print(X_plain)
+    print("W_plain =")
+    print(W_plain)
+    print("b_plain =", b_plain)
+    print("Y_expected =")
+    print(Y_expected)
+    print("Y_mpc =")
+    print(Y_mpc)
+    print("abs_error =")
+    print(diff)
+
+    if np.all(diff <= 1.0 / (1 << scale_bits)):
+        print("Fixed-point Secret Conv2D test PASSED ✅")
+    else:
+        print("Fixed-point Secret Conv2D test FAILED ❌")
+
+    print_report("Party0 Fixed-point Secret Conv2D Profiler")
+
+    s.close()
+
+
+if __name__ == "__main__":
+    main()
