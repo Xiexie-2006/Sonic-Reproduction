@@ -1,0 +1,465 @@
+
+1. 总体代码实现思路提示词
+我现在要复现 Sonic 这篇安全神经网络推理论文，不希望只是写一个普通神经网络 demo，而是要按照论文中的安全推理流程进行模块化复现。
+请你先根据论文结构帮我设计代码目录和模块划分，要求包括：
+1. 底层秘密分享模块；
+2. Beaver triple 和安全乘法模块；
+3. Boolean sharing 和 bit AND 模块；
+4. A2B、B2A、安全比较、MSB 提取模块；
+5. SReLU、SBN、SFC、SCONV、SMP 等安全神经网络层；
+6. fixed-point 编码和 secure truncation；
+7. M1、M2、C1、C2 模型推理流程；
+8. server0/server1 两方通信测试脚本。
+注意：代码要尽量贴合 Sonic 论文，不要只做明文模拟，也不要用直接重构明文的方式绕过安全计算。
+这个阶段主要目的是先确定项目结构，而不是直接写完整代码。
+
+
+2. Additive Secret Sharing 代码生成提示词
+请你帮我实现 Sonic 复现中的基础秘密分享模块 share.py。
+要求：
+1. 使用 Z_(2^32) 环；
+2. 实现 arithmetic secret sharing；
+3. 实现 arithmetic share 重构函数；
+4. 实现 Boolean sharing；
+5. 实现 Boolean share 重构函数；
+6. 数据类型尽量使用 numpy.uint32；
+7. 代码要简洁，方便后续 secure_mul、B2A、A2B 等模块调用。
+注意：这个模块只负责基础分享和重构，不要加入神经网络逻辑。
+
+我现在要在 Sonic 中处理神经网络浮点数，所以还需要 fixed-point 编码。
+请你帮我实现 fixed_point.py，要求：
+1. encode_fixed：把 float/int 编码到 Z_(2^32) 环；
+2. decode_fixed：把环元素解码回 float；
+3. 支持 scale_bits 参数；
+4. 负数要按照二补码方式映射到 uint32；
+5. 提供 to_signed_int 方便调试；
+6. bias 可能需要按输出尺度编码，请提供相关辅助函数。
+
+
+3. Beaver Triple 和安全乘法提示词
+接下来请你帮我实现基于 Beaver triple 的安全乘法 secure_mul。
+背景：
+Sonic 中两个秘密值 x 和 y 不能直接相乘，需要使用 Beaver triple (a,b,c)，其中 c=a*b。
+实现要求：
+1. 输入 xi、yi 是当前方持有的 arithmetic share；
+2. triple_i 是当前方持有的 (ai, bi, ci)；
+3. 计算 ei = xi - ai，fi = yi - bi；
+4. 两方通过 socket 交换 ei 和 fi；
+5. 重构公开 e 和 f；
+6. 按 Beaver 公式计算乘法结果 share；
+7. 所有计算都在 Z_(2^32) 环上进行；
+8. 使用 numpy.uint32 存储，必要时用 uint64 做中间计算防止溢出。
+注意：不能直接重构 x 和 y 再相乘，要保持安全乘法流程。
+
+请你帮我设计 triple_pool.py 和 triple.py。
+要求：
+1. triple_pool.py 负责缓存 arithmetic triple 和 Boolean triple；
+2. 使用 shape 作为 key，不同 shape 的乘法取对应 shape 的 triple；
+3. triple.py 只提供统一接口 get_arith_triple 和 get_bit_triple；
+4. 后续 secure_mul 和 bit_and 不关心 triple 来源；
+5. 支持后面通过 trusted dealer 或 OT extension 生成 triple；
+6. 如果 pool 中 triple 用完，要给出明确报错。
+
+为了先跑通功能测试，请你帮我实现 trusted dealer 版本的 triple_dealer.py。
+要求：
+1. 根据 arith_plan 生成 arithmetic Beaver triples；
+2. 根据 bit_plan 生成 Boolean Beaver triples；
+3. 每个 arithmetic triple 满足 c = a*b mod 2^32；
+4. 每个 Boolean triple 满足 c = a AND b；
+5. dealer 负责把完整 triple 拆成两方 share；
+6. 根据 party_id 把对应 share 放入 triple_pool；
+7. 这个版本主要用于测试，不代表最终安全协议必须依赖可信方。
+
+
+4. OT 和 OT Extension 相关代码提示词
+Sonic 中 Beaver triple 属于 offline material。为了更贴近安全协议，我想实现 OT 和 OT Extension，用来生成 Boolean triple 和 arithmetic triple。
+请你先帮我实现一个基础 OT 模块 ot.py，要求：
+1. 支持 sender 输入两组消息；
+2. receiver 输入 choice bit；
+3. receiver 只能得到对应 choice 的消息；
+4. 代码用于教学和论文复现，不需要做工业级密码库；
+5. 接口要方便后续 ot_extension.py 调用。
+
+请你帮我实现 ot_extension.py，用于批量传输 bit 消息。
+要求：
+1. sender 输入 m0_arr 和 m1_arr；
+2. receiver 输入 choice_arr；
+3. 输出和 choice_arr 同 shape 的选择结果；
+4. 支持 numpy 数组；
+5. 用 socket_utils 中的 send_data 和 recv_data 进行通信；
+6. 后续 bit_triple_ot.py 会基于它生成 Boolean Beaver triples。
+
+请你帮我实现 ot_extension_ring.py，用于 Z_(2^32) 环上的 uint32 消息 OT Extension。
+要求：
+1. sender 输入 m0_arr、m1_arr，数据类型为 uint32；
+2. receiver 输入 choice_arr，元素为 0/1；
+3. receiver 根据 choice 得到对应 uint32 消息；
+4. 支持批量数组；
+5. 用于 arith_triple_ot.py 生成 arithmetic Beaver triples；
+6. 注意数据类型和 shape 保持一致。
+
+
+5. Boolean triple 和 bit_and 提示词
+请你帮我实现 Boolean Beaver triple 生成和 bit_and。
+背景：
+Boolean sharing 中，XOR 可以本地做，但 AND 需要交互。Sonic 中 secure MSB 和比较会大量用到 bit AND。
+实现要求：
+1. Boolean triple 满足 c = a AND b；
+2. a、b、c 都以 Boolean share 形式分给两方；
+3. bit_and(xi, yi) 使用 Boolean Beaver triple；
+4. 打开 e = x XOR a，f = y XOR b；
+5. 用 Boolean Beaver 公式计算 x AND y 的 share；
+6. 不要直接重构 x 和 y。
+
+请你帮我用 OT Extension 实现 bit_triple_ot.py。
+要求：
+1. 批量生成 Boolean Beaver triples；
+2. 对每个 triple 满足 a = a0 XOR a1，b = b0 XOR b1，c = c0 XOR c1 = a AND b；
+3. 交叉项 a0&b1 和 a1&b0 通过 OT Extension 生成 share；
+4. 返回当前 party 的 triple share 列表；
+5. shape 和 count 都要支持批量设置；
+6. 后续 get_bit_triple 会从 pool 中取用。
+
+
+6. Arithmetic triple OT 生成提示词
+请你帮我实现 arith_triple_ot.py，用 OT Extension 批量生成 arithmetic Beaver triples。
+背景：
+对每个 triple，需要满足：
+a = a0 + a1 mod 2^32
+b = b0 + b1 mod 2^32
+c = c0 + c1 mod 2^32 = a*b mod 2^32
+展开：
+c = (a0+a1)(b0+b1)
+  = a0b0 + a0b1 + a1b0 + a1b1
+其中 a0b0 和 a1b1 可以本地算，交叉项 a0b1 和 a1b0 需要通过 OT Extension 生成 additive shares。
+要求：
+1. 支持 shape 和 count；
+2. 使用 uint32；
+3. 对 32 个 bit 展开 b 的选择；
+4. 使用 ot_extension_ring.py；
+5. 返回当前 party 的 (a_i, b_i, c_i) 列表；
+6. 不要重构完整 a、b、c 给某一方。
+
+
+7. A2B、B2A、安全比较和 MSB 提示词
+请你帮我实现 A2B，也就是 arithmetic share 到 Boolean bit share 的转换。
+背景：
+Sonic 中 secure MSB 需要 bit 级表示，但输入 x 一开始是 arithmetic share。
+两方分别持有 x0 和 x1，需要得到 x = x0 + x1 mod 2^32 的每一位 Boolean share。
+要求：
+1. 输入 xi 是当前方持有的 arithmetic share；
+2. 输出 bits 列表，bits[i] 是第 i 位 Boolean share；
+3. 用逐位 full-adder 思路处理 x0+x1；
+4. carry 需要用安全 bit_and 计算；
+5. 支持 numpy 数组；
+6. bit_len 默认 32；
+7. 不要重构 x。
+
+请你帮我实现 B2A，也就是 Boolean share 到 Arithmetic share 的转换。
+背景：
+SReLU 中比较结果是 Boolean share，但后续要和 arithmetic share 的 x 相乘，所以需要转成 arithmetic share。
+论文公式：
+如果 x = x0 XOR x1，则
+x = x0 + x1 - 2*x0*x1
+要求：
+1. 输入 xb_i 是当前方持有的 Boolean share；
+2. 输出 arithmetic share；
+3. 乘积 x0*x1 要调用 secure_mul；
+4. 所有计算在 Z_(2^32) 环上完成；
+5. 不要直接重构 Boolean 值。
+
+请你帮我实现 secure_msb 和 secure_compare_zero。
+背景：
+Sonic 中 ReLU(x) = NOT(MSB(x)) * x，因此需要安全提取 x 的最高位。
+x 是 arithmetic share，负数采用二补码表示。
+要求：
+1. secure_msb(xi) 输出 x0+x1 mod 2^32 的 MSB Boolean share；
+2. 使用逐位 full-adder 计算 sum 和 carry；
+3. carry 计算中的 AND 要调用 bit_and；
+4. secure_compare_zero(xi) 返回 Boolean share：
+   1 表示 x >= 0，0 表示 x < 0；
+5. Boolean share 下取反只让一方 XOR 1；
+6. 当前先实现功能级版本，后续再考虑论文中的 PPA 优化。
+
+
+8. SReLU 代码提示词
+请你帮我实现 Sonic 中的 SReLU。
+论文原理：
+ReLU(x) = max(0,x)
+在二补码 fixed-point 表示下：
+ReLU(x) = NOT(MSB(x)) * x
+实现要求：
+1. 输入 xi 是 arithmetic share；
+2. 调用 secure_compare_zero 得到 gate 的 Boolean share；
+3. 调用 b2a_secure 把 gate 转成 arithmetic share；
+4. 调用 secure_mul 计算 gate * x；
+5. 输出仍然是 arithmetic share；
+6. 不要重构 x 或 gate；
+7. 加入 profiler 统计 relu_calls 和 relu_time。
+
+
+9. Secure truncation 代码提示词
+请你帮我实现 fixed-point 推理中的 secure_trunc。
+背景：
+输入和权重都是 scale=2^f 时，乘法后结果变成 scale=2^(2f)，需要右移 f 位恢复到 2^f。
+但是 x 是 arithmetic share，不能直接重构后右移。
+同时负数采用二补码表示，不能简单做无符号右移，而要考虑符号位。
+实现思路：
+1. 先通过 A2B 把 arithmetic share 转成 bit shares；
+2. 取第 31 位作为 sign bit；
+3. 做 signed arithmetic right shift；
+4. 高位用 sign bit 补齐；
+5. 每一位通过 B2A 转回 arithmetic share；
+6. 按 bit 权重 2^j 重组；
+7. 输出截断后的 arithmetic share。
+要求：
+1. 不要重构明文；
+2. 支持 numpy 数组；
+3. 统计 trunc_calls 和 trunc_time；
+4. 所有计算保持在 Z_(2^32) 环上。
+
+
+10. SFC 和 SCONV 代码提示词
+请你帮我实现 Sonic 中的安全全连接层 SFC。
+要求：
+1. 实现公开权重版本 linear_public_weight，用于早期测试；
+2. 实现秘密权重版本 linear_secret_weight；
+3. secret 版本中 X、W、b 都是 arithmetic share；
+4. 矩阵乘法中的每一项乘法都调用 secure_mul；
+5. 加法可以本地在 Z_(2^32) 环上完成；
+6. bias 如果是 share，两方都加自己的 b_i；
+7. 支持 batch 输入；
+8. 加入 profiler 统计 linear_secret_calls 和 linear_secret_time。
+
+请你帮我实现 Sonic 中的安全卷积层 SCONV。
+设计思路：
+普通 Conv2D 可以通过 im2col 转换成矩阵乘法，因此安全卷积可以复用 linear_secret_weight。
+要求：
+1. 输入 x_i shape = [N, C_in, H, W]；
+2. 权重 w_i shape = [C_out, C_in, kH, kW]；
+3. 实现 im2col_nchw，把卷积窗口展开成矩阵；
+4. 实现 weight_to_matrix_nchw，把卷积核展开成矩阵；
+5. 调用 linear_secret_weight 完成安全矩阵乘法；
+6. 最后 reshape 回 [N, C_out, out_h, out_w]；
+7. 支持 stride 和 padding；
+8. 不要直接重构输入或权重。
+
+请你帮我在 conv2d_secret 外面封装 conv2d_secret_fixed。
+要求：
+1. 先调用 conv2d_secret 得到 raw 输出；
+2. 因为输入和权重都是 fixed-point，卷积输出 scale = 2^(2f)；
+3. 调用 secure_trunc 恢复到 scale = 2^f；
+4. 函数参数包括 scale_bits、conn、party_id、stride、padding；
+5. 输出仍然是 arithmetic share。
+
+
+11. SBN 代码提示词
+请你帮我实现 Sonic 中的 Secure Batch Normalization。
+论文中推理阶段 BN 可以折叠为：
+z = eps1 * x + eps2
+其中：
+eps1 = gamma / sqrt(var + eps)
+eps2 = beta - gamma * mean / sqrt(var + eps)
+实现要求：
+1. mpc/sbn.py 中实现 sbn_fixed；
+2. 输入 x_i 是 arithmetic share；
+3. eps1_i 和 eps2_i 也是 arithmetic share；
+4. 支持 Conv 输出 [N,C,H,W] 和 FC 输出 [N,D]；
+5. 如果 eps1_i shape 是 [C]，要 broadcast 到 [N,C,H,W]；
+6. 如果 eps1_i shape 是 [D]，要 broadcast 到 [N,D]；
+7. eps1*x 使用 secure_mul；
+8. eps2 按 2^(2f) 编码后直接相加；
+9. 最后用 secure_trunc 恢复 scale；
+10. 不要重构中间结果。
+
+请你帮我在 sonic_pytorch_models.py 中实现从 PyTorch BatchNorm 导出 Sonic SBN 参数的函数。
+要求：
+1. 输入 PyTorch BatchNorm 层；
+2. 读取 weight(gamma)、bias(beta)、running_mean、running_var、eps；
+3. 计算 eps1 = gamma / sqrt(running_var + eps)；
+4. 计算 eps2 = beta - gamma * running_mean / sqrt(running_var + eps)；
+5. 返回 numpy 数组，供后续 fixed-point 编码。
+
+
+12. Secure MaxPool 和优化顺序提示词
+请你帮我实现 Sonic 中的 Secure Max Pooling。
+思路：
+两个 secret shared 数的最大值可以写成：
+max(x,y) = y + gate*(x-y)
+其中 gate = 1 if x >= y else 0
+实现要求：
+1. 实现 secure_max2(x_i, y_i)；
+2. 先计算 diff = x - y；
+3. 用 secure_compare_zero(diff) 得到 gate 的 Boolean share；
+4. 用 b2a_secure 转成 arithmetic share；
+5. 用 secure_mul 计算 gate*diff；
+6. 输出 y + gate*diff；
+7. 实现 maxpool2d_secret，遍历池化窗口，多次调用 secure_max2；
+8. 支持 NCHW 格式；
+9. 当前先支持 padding=0。
+
+Sonic 论文中提到 ReLU 和 MaxPool 可以交换顺序，用 MaxPool → ReLU 替代 ReLU → MaxPool，从而减少安全 ReLU 调用次数。
+请你帮我实现一个优化版 CNN 推理函数 secure_fixed_cnn_sbn_pool_relu，要求流程为：
+Conv2D
+→ SBN
+→ Secure MaxPool2D
+→ SReLU
+→ Flatten
+→ Secret Linear
+→ Secure Truncation
+说明：
+1. 先 MaxPool 再 SReLU；
+2. 体现 Sonic 中减少 SReLU 调用数量的优化；
+3. 所有输入和参数都是 arithmetic share；
+4. 不要重构中间结果。
+
+
+13. M1、M2、C1、C2 完整模型提示词
+请你帮我实现 Sonic 论文中的 M1 fixed-point MPC inference。
+M1 是 MNIST 上的全连接模型，结构为：
+Flatten
+→ SFC1
+→ SBN1
+→ SReLU1
+→ SFC2
+→ SBN2
+→ SReLU2
+→ SFC3
+→ SBN3
+实现要求：
+1. 输入 x_i shape = [N,1,28,28]；
+2. flatten 成 [N,784]；
+3. 每个 FC 使用 linear_secret_weight；
+4. 每个 FC 后先 secure_trunc 恢复 scale；
+5. 每个 BN 使用 sbn_fixed；
+6. ReLU 使用 srelu；
+7. 输出 logits share；
+8. 所有权重、bias、BN 参数都是 arithmetic share；
+9. 不要重构中间结果。
+
+请你帮我实现 Sonic 论文中的 M2 fixed-point MPC inference。
+M2 是 MNIST CNN，结构大致为：
+Conv1
+→ SBN1
+→ MaxPool1
+→ SReLU1
+→ Conv2
+→ SBN2
+→ MaxPool2
+→ SReLU2
+→ Flatten
+→ SFC1
+→ SBN3
+→ SReLU3
+→ SFC2
+→ SBN4
+要求：
+1. Conv 使用 conv2d_secret_fixed；
+2. BN 使用 sbn_fixed；
+3. Pool 使用 maxpool2d_secret；
+4. ReLU 使用 srelu；
+5. 使用 Sonic 优化顺序 MaxPool → SReLU；
+6. FC 使用 linear_secret_weight；
+7. FC 后 secure_trunc；
+8. 输出 logits share；
+9. 注释中写清每一步的 shape 变化。
+
+请你帮我实现 Sonic 论文中的 C1 fixed-point MPC inference。
+C1 是 CIFAR-10 CNN，输入为 [N,3,32,32]，包含多层 Conv、SBN、SReLU、MaxPool，最后 Flatten 接 FC。
+要求：
+1. 按论文 C1 的层顺序写完整函数；
+2. 每层 Conv 使用 conv2d_secret_fixed；
+3. 每层 BN 使用 sbn_fixed；
+4. 激活使用 srelu；
+5. MaxPool 使用 maxpool2d_secret；
+6. 需要体现 Sonic 优化顺序 MaxPool → SReLU；
+7. 最后 Flatten 接 linear_secret_weight；
+8. FC 后 secure_trunc；
+9. 最后一层 SBN 输出 logits share；
+10. 在注释中写清每层输入输出 shape。
+
+请你帮我实现 Sonic 论文中的 C2 fixed-point MPC inference。
+C2 比 C1 更深，包含 9 个卷积层和多次 MaxPool。
+要求：
+1. 输入为 CIFAR-10 图像 [N,3,32,32]；
+2. 按论文 C2 结构写完整推理流程；
+3. 每个 Conv 后接 SBN；
+4. 在对应位置使用 MaxPool → SReLU 优化顺序；
+5. 最后 Flatten 接 FC；
+6. 所有乘法类层后注意 secure_trunc；
+7. 输出 logits share；
+8. 代码结构要清晰，方便后续测试和报告说明。
+
+
+14. PyTorch 明文模型和参数导出提示词
+请你帮我实现 Sonic 论文中 M1/M2/C1/C2 的 PyTorch 明文参考模型。
+要求：
+1. 用一个 sonic_model_specs.py 定义模型结构；
+2. 用 LayerSpec 和 ModelSpec 管理每层信息；
+3. 支持 M1、M2、C1、C2；
+4. 用 sonic_pytorch_models.py 根据 spec 自动构建 PyTorch 模型；
+5. 支持 forward_with_trace，用于打印每层输入输出 shape；
+6. 支持 export_sonic_model_params，导出 Conv、FC、BN 参数；
+7. Linear 权重导出时注意 PyTorch 是 [out,in]，MPC 需要 [in,out]；
+8. BN 参数导出为 eps1 和 eps2，而不是直接导出 gamma/beta/mean/var。
+
+
+15. server0/server1 测试脚本提示词
+请你帮我为当前模块写 server0 和 server1 测试脚本。
+要求：
+1. server0 负责监听端口；
+2. server1 负责连接 server0；
+3. 两边分别持有输入和参数的 share；
+4. 调用对应 MPC 函数；
+5. 最后双方把输出 share 发回或重构；
+6. 与明文 numpy/PyTorch 结果对比；
+7. 输出测试结果；
+8. 文件名分别为 test_xxx_server0.py 和 test_xxx_server1.py。
+
+请你帮我写 test_srelu_server0.py 和 test_srelu_server1.py。
+要求：
+1. 构造包含正数、负数和 0 的 fixed-point 输入；
+2. secret share 后两方分别运行 srelu；
+3. 重构结果；
+4. decode_fixed 后和明文 ReLU 结果比较；
+5. 输出 expected 和 got，方便调试。
+
+请你帮我写 test_m1_mpc_server0.py 和 test_m1_mpc_server1.py。
+要求：
+1. 构造一小批 MNIST 形状输入；
+2. 构造 M1 所需的 FC、BN 参数；
+3. 对输入和参数 fixed-point 编码并 secret share；
+4. 双方运行 secure_m1_fixed_inference；
+5. 重构 logits；
+6. 与明文 PyTorch 或 numpy 结果做近似对比；
+7. 打印 profiler 报告。
+
+
+16. run_all_tests 提示词
+现在 run/ 目录下有很多 server0/server1 测试脚本，请你帮我写 run_all_tests.py。
+要求：
+1. 按顺序运行基础协议测试、安全算子测试、MLP/CNN 测试、M1/M2/C1/C2 测试；
+2. 对每个测试同时启动 server0 和 server1；
+3. 等待进程结束；
+4. 捕获 stdout 和 stderr；
+5. 输出每个测试 PASS/FAIL；
+6. 如果某个测试失败，要继续或给出清楚提示；
+7. 方便老师或学长一键查看整体功能是否跑通。
+
+
+17. 调试报错时的提示词
+我运行xxxxx测试时出现以下报错，请你帮我分析原因。注意不要直接大改代码，先判断是xxx(例如:import 路径、shape、dtype、socket 通信还是 triple pool 的问题)。
+报错信息如下：
+----------------------
+相关代码文件如下：
+----------------------
+请你给我具体修改建议，并说明为什么这样改。
+
+现在运行 secure_cnn 或 secure_m2 时 shape 对不上。请你根据输入 shape、卷积核大小、stride、padding 推导每一层输出尺寸，并检查我的代码中哪一层 shape 可能不一致。
+
+现在 MPC 输出和 PyTorch 明文输出对不上，请你帮我分析可能原因。重点从以下角度检查：
+1. fixed-point scale 是否一致；
+2. FC 或 Conv 后是否缺少 secure_trunc；
+3. bias 是否按正确 scale 编码；
+4. PyTorch Linear 权重是否需要转置；
+5. BN 是否正确转换成 eps1 和 eps2。
