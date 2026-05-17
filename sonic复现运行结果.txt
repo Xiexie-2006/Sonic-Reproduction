@@ -1,0 +1,1846 @@
+一、run_all_tests.py
+默认 functional 模式下 21 个功能测试全部通过，主要覆盖的是基础协议、密文算子、小型 MLP/CNN、SBN/MaxPool/Argmax/优化 CNN 等功能测试
+每个模块都输出了通信量、消息数量、协议调用次数和耗时等(效率和开销部分)
+
+D:\pycharm\practice\Sonic论文复现\.venv\Scripts\python.exe D:\pycharm\practice\Sonic论文复现\run\run_all_tests.py 
+
+================================================================================
+[RUN] OT Extension
+================================================================================
+m0       = [[0 0 1 1 0 1 0 1]]
+m1       = [[1 0 0 1 1 1 0 0]]
+choices  = [[0 1 1 0 1 0 0 1]]
+result   = [[0 0 0 1 1 1 0 0]]
+expected = [[0 0 0 1 1 1 0 0]]
+OT Extension test PASSED ✅
+
+[PASS] OT Extension
+
+================================================================================
+[RUN] OT Boolean Triple
+================================================================================
+a = [[1 1 1 1]]
+b = [[1 1 1 0]]
+c = [[1 1 1 0]]
+expected = [[1 1 1 0]]
+OT Boolean triple test PASSED ✅
+
+[PASS] OT Boolean Triple
+
+================================================================================
+[RUN] OT Arithmetic Triple
+================================================================================
+
+Triple 0
+a = [[1708872646  668970065 1510550942]]
+b = [[ 304545006 1847257087 2498221222]]
+c = [[4089629204 3666066351 2102160500]]
+expected = [[4089629204 3666066351 2102160500]]
+
+Triple 1
+a = [[2944236541  737446942  308394438]]
+b = [[ 736142338 2052667914 3168282023]]
+c = [[3200846842  565855532 1151979050]]
+expected = [[3200846842  565855532 1151979050]]
+
+OT Arithmetic triple test PASSED ✅
+
+[PASS] OT Arithmetic Triple
+
+================================================================================
+[RUN] SReLU
+================================================================================
+===== SReLU Test =====
+x_plain =
+[[ 5  0 -3 12 -9]]
+SReLU MPC =
+[[ 5  0  0 12  0]]
+Expected =
+[[ 5  0  0 12  0]]
+SReLU test PASSED ✅
+
+========== Party0 SReLU Profiler ==========
+bytes_sent        : 2510154
+bytes_recv        : 2510079
+total_comm_bytes  : 5020233
+
+----- Message Counts -----
+send_messages     : 585
+recv_messages     : 583
+total_messages    : 1168
+
+----- Offline Materials -----
+offline_arith_triples : 100
+offline_bit_triples   : 400
+
+----- Call Counts -----
+secure_mul_calls  : 2
+bit_and_calls     : 64
+b2a_calls         : 1
+a2b_calls         : 0
+trunc_calls       : 0
+relu_calls        : 1
+linear_calls      : 0
+
+----- Time Cost (seconds) -----
+offline_time      : 1.027610
+online_time       : 0.058875
+secure_mul_time   : 0.000624
+bit_and_time      : 0.056329
+b2a_time          : 0.000415
+a2b_time          : 0.000000
+trunc_time        : 0.000000
+relu_time         : 0.058569
+linear_time       : 0.000000
+total_time        : 1.086888
+====================================
+
+
+[PASS] SReLU
+
+================================================================================
+[RUN] Secret Linear
+================================================================================
+===== Secret Linear Test =====
+X_plain = [[1 2]]
+W_plain =
+[[3 4]
+ [5 6]]
+b_plain = [7 8]
+Y = [[20 24]]
+Expected = [[20 24]]
+Secret Linear test PASSED ✅
+
+========== Party0 Secret Linear Profiler ==========
+bytes_sent        : 198295
+bytes_recv        : 198087
+total_comm_bytes  : 396382
+
+----- Message Counts -----
+send_messages     : 263
+recv_messages     : 261
+total_messages    : 524
+
+----- Offline Materials -----
+offline_arith_triples : 20
+offline_bit_triples   : 0
+
+----- Call Counts -----
+secure_mul_calls  : 2
+bit_and_calls     : 0
+b2a_calls         : 0
+a2b_calls         : 0
+trunc_calls       : 0
+relu_calls        : 0
+linear_calls      : 1
+
+----- Time Cost (seconds) -----
+offline_time      : 0.214886
+online_time       : 0.000773
+secure_mul_time   : 0.000542
+bit_and_time      : 0.000000
+b2a_time          : 0.000000
+a2b_time          : 0.000000
+trunc_time        : 0.000000
+relu_time         : 0.000000
+linear_time       : 0.000639
+total_time        : 0.215957
+====================================
+
+
+[PASS] Secret Linear
+
+================================================================================
+[RUN] Secret MLP
+================================================================================
+===== Secret MLP Test =====
+X_plain = [[ 5 -3]]
+H_expected = [[ 2 -4]]
+ReLU_expected = [[2 0]]
+Y = [[8]]
+Expected = [[8]]
+Secret MLP test PASSED ✅
+
+========== Party0 Secret MLP Profiler ==========
+bytes_sent        : 639835
+bytes_recv        : 639582
+total_comm_bytes  : 1279417
+
+----- Message Counts -----
+send_messages     : 847
+recv_messages     : 845
+total_messages    : 1692
+
+----- Offline Materials -----
+offline_arith_triples : 80
+offline_bit_triples   : 120
+
+----- Call Counts -----
+secure_mul_calls  : 6
+bit_and_calls     : 64
+b2a_calls         : 1
+a2b_calls         : 0
+trunc_calls       : 0
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 0.742869
+online_time       : 0.136797
+secure_mul_time   : 0.001874
+bit_and_time      : 0.132519
+b2a_time          : 0.000355
+a2b_time          : 0.000000
+trunc_time        : 0.000000
+relu_time         : 0.135192
+linear_time       : 0.001327
+total_time        : 0.880190
+====================================
+
+
+[PASS] Secret MLP
+
+================================================================================
+[RUN] Fixed-point Trunc MLP
+================================================================================
+===== Fixed-point + Secure Truncation MLP Test =====
+X_plain = [[ 0.5  -0.25]]
+H_expected = [[ 0.25 -0.25]]
+ReLU_expected = [[0.25 0.  ]]
+Y_expected = [[1.]]
+Y_mpc = [[1.]]
+abs_error = [[0.]]
+scale_bits = 8
+Fixed-point Trunc MLP test PASSED ✅
+
+========== Party0 Fixed-point Trunc MLP Profiler ==========
+bytes_sent        : 1531809
+bytes_recv        : 1531552
+total_comm_bytes  : 3063361
+
+----- Message Counts -----
+send_messages     : 1297
+recv_messages     : 1295
+total_messages    : 2592
+
+----- Offline Materials -----
+offline_arith_triples : 200
+offline_bit_triples   : 360
+
+----- Call Counts -----
+secure_mul_calls  : 70
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 1.056529
+online_time       : 0.393520
+secure_mul_time   : 0.106787
+bit_and_time      : 0.275122
+b2a_time          : 0.106854
+a2b_time          : 0.223285
+trunc_time        : 0.331817
+relu_time         : 0.059939
+linear_time       : 0.001445
+total_time        : 1.450361
+====================================
+
+
+[PASS] Fixed-point Trunc MLP
+
+================================================================================
+[RUN] PyTorch MLP
+================================================================================
+===== PyTorch MLP vs MPC MLP Test =====
+X_plain = [[ 5 -3]]
+PyTorch Y = [[8]]
+
+===== Exported Parameters =====
+W1_plain =
+[[1 1]
+ [1 3]]
+b1_plain = [0 0]
+W2_plain =
+[[4]
+ [7]]
+b2_plain = [0]
+
+===== MPC Output =====
+MPC Y = [[8]]
+PyTorch MLP vs MPC MLP test PASSED ✅
+
+========== Party0 PyTorch MLP Profiler ==========
+bytes_sent        : 639833
+bytes_recv        : 639585
+total_comm_bytes  : 1279418
+
+----- Message Counts -----
+send_messages     : 847
+recv_messages     : 845
+total_messages    : 1692
+
+----- Offline Materials -----
+offline_arith_triples : 80
+offline_bit_triples   : 120
+
+----- Call Counts -----
+secure_mul_calls  : 6
+bit_and_calls     : 64
+b2a_calls         : 1
+a2b_calls         : 0
+trunc_calls       : 0
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 0.816190
+online_time       : 0.083804
+secure_mul_time   : 0.002407
+bit_and_time      : 0.078890
+b2a_time          : 0.000612
+a2b_time          : 0.000000
+trunc_time        : 0.000000
+relu_time         : 0.082043
+linear_time       : 0.001599
+total_time        : 0.900352
+====================================
+
+
+[PASS] PyTorch MLP
+
+================================================================================
+[RUN] Fixed-point Conv2D
+================================================================================
+===== Fixed-point Secret Conv2D Test =====
+X_plain =
+[[[[0.5 1.  1.5]
+   [2.  2.5 3. ]
+   [3.5 4.  4.5]]]]
+W_plain =
+[[[[1. 0.]
+   [0. 1.]]]]
+b_plain = [0.25]
+Y_expected =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+Y_mpc =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+abs_error =
+[[[[0. 0.]
+   [0. 0.]]]]
+Fixed-point Secret Conv2D test PASSED ✅
+
+========== Party0 Fixed-point Secret Conv2D Profiler ==========
+bytes_sent        : 2074860
+bytes_recv        : 2074565
+total_comm_bytes  : 4149425
+
+----- Message Counts -----
+send_messages     : 877
+recv_messages     : 875
+total_messages    : 1752
+
+----- Offline Materials -----
+offline_arith_triples : 110
+offline_bit_triples   : 120
+
+----- Call Counts -----
+secure_mul_calls  : 36
+bit_and_calls     : 64
+b2a_calls         : 32
+a2b_calls         : 1
+trunc_calls       : 1
+relu_calls        : 0
+linear_calls      : 1
+
+----- Time Cost (seconds) -----
+offline_time      : 1.018971
+online_time       : 0.170067
+secure_mul_time   : 0.064392
+bit_and_time      : 0.101441
+b2a_time          : 0.063882
+a2b_time          : 0.103425
+trunc_time        : 0.168001
+relu_time         : 0.000000
+linear_time       : 0.001668
+total_time        : 1.189384
+====================================
+
+
+[PASS] Fixed-point Conv2D
+
+================================================================================
+[RUN] Fixed-point CNN
+================================================================================
+===== Fixed-point Secret CNN Test =====
+X_plain =
+[[[[0.5 1.  1.5]
+   [2.  2.5 3. ]
+   [3.5 4.  4.5]]]]
+conv_expected =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+act_expected =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+flat_expected =
+[[3.25 4.25 6.25 7.25]]
+Y_expected =
+[[13.75]]
+Y_mpc =
+[[13.75]]
+abs_error =
+[[0.]]
+Fixed-point Secret CNN test PASSED ✅
+
+========== Party0 Fixed-point Secret CNN Profiler ==========
+bytes_sent        : 3828477
+bytes_recv        : 3828191
+total_comm_bytes  : 7656668
+
+----- Message Counts -----
+send_messages     : 1817
+recv_messages     : 1815
+total_messages    : 3632
+
+----- Offline Materials -----
+offline_arith_triples : 320
+offline_bit_triples   : 360
+
+----- Call Counts -----
+secure_mul_calls  : 74
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 2.118471
+online_time       : 0.281519
+secure_mul_time   : 0.060114
+bit_and_time      : 0.209142
+b2a_time          : 0.059612
+a2b_time          : 0.195054
+trunc_time        : 0.256072
+relu_time         : 0.021341
+linear_time       : 0.003613
+total_time        : 2.400307
+====================================
+
+
+[PASS] Fixed-point CNN
+
+================================================================================
+[RUN] PyTorch CNN
+================================================================================
+===== PyTorch CNN vs MPC CNN Test =====
+X_plain =
+[[[[0.5 1.  1.5]
+   [2.  2.5 3. ]
+   [3.5 4.  4.5]]]]
+
+===== PyTorch Parameters =====
+conv_W_plain =
+[[[[1. 0.]
+   [0. 1.]]]]
+conv_b_plain = [0.25]
+fc_W_plain =
+[[ 1. ]
+ [ 0.5]
+ [-1. ]
+ [ 2. ]]
+fc_b_plain = [0.125]
+
+===== Output Comparison =====
+PyTorch Y =
+[[13.75]]
+MPC Y =
+[[13.75]]
+abs_error =
+[[0.]]
+PyTorch CNN vs MPC CNN test PASSED ✅
+
+========== Party0 PyTorch CNN Profiler ==========
+bytes_sent        : 3828478
+bytes_recv        : 3828192
+total_comm_bytes  : 7656670
+
+----- Message Counts -----
+send_messages     : 1817
+recv_messages     : 1815
+total_messages    : 3632
+
+----- Offline Materials -----
+offline_arith_triples : 320
+offline_bit_triples   : 360
+
+----- Call Counts -----
+secure_mul_calls  : 74
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 2.199024
+online_time       : 0.284376
+secure_mul_time   : 0.105021
+bit_and_time      : 0.168800
+b2a_time          : 0.087233
+a2b_time          : 0.128873
+trunc_time        : 0.217222
+relu_time         : 0.046329
+linear_time       : 0.020380
+total_time        : 2.483895
+====================================
+
+
+[PASS] PyTorch CNN
+
+================================================================================
+[RUN] CNN Accuracy
+================================================================================
+===== CNN Accuracy Test: PyTorch vs MPC =====
+X_plain shape = (4, 1, 3, 3)
+y_true = [0 1 2 0]
+
+PyTorch logits =
+[[19.      7.125  10.1875]
+ [ 8.5625  1.375   4.875 ]
+ [ 2.3125  0.625   4.5625]
+ [ 9.625   3.375   5.4375]]
+PyTorch pred = [0 0 2 0]
+PyTorch acc = 0.75
+
+MPC logits =
+[[19.      7.125  10.1875]
+ [ 8.5625  1.375   4.875 ]
+ [ 2.3125  0.625   4.5625]
+ [ 9.625   3.375   5.4375]]
+MPC pred = [0 0 2 0]
+MPC acc = 0.75
+
+abs_error =
+[[0. 0. 0.]
+ [0. 0. 0.]
+ [0. 0. 0.]
+ [0. 0. 0.]]
+max_abs_error = 0.0
+CNN accuracy pipeline test PASSED ✅
+
+========== Party0 CNN Accuracy Profiler ==========
+bytes_sent        : 55138660
+bytes_recv        : 55138100
+total_comm_bytes  : 110276760
+
+----- Message Counts -----
+send_messages     : 1821
+recv_messages     : 1819
+total_messages    : 3640
+
+----- Offline Materials -----
+offline_arith_triples : 580
+offline_bit_triples   : 600
+
+----- Call Counts -----
+secure_mul_calls  : 78
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 16.659210
+online_time       : 0.318298
+secure_mul_time   : 0.062396
+bit_and_time      : 0.241535
+b2a_time          : 0.047596
+a2b_time          : 0.184614
+trunc_time        : 0.234967
+relu_time         : 0.064833
+linear_time       : 0.017753
+total_time        : 16.977972
+====================================
+
+
+[PASS] CNN Accuracy
+
+================================================================================
+[RUN] Dataset CNN Accuracy
+================================================================================
+
+================================================================================
+[RUN] Pre-script: run/make_toy_dataset.py
+================================================================================
+Saved dataset to: D:\pycharm\practice\Sonic论文复现\data\toy_cnn_dataset.npz
+X_test shape: (4, 1, 3, 3)
+y_test shape: (4,)
+
+[PASS] Pre-script: run/make_toy_dataset.py
+===== CNN Dataset Accuracy Test: PyTorch vs MPC =====
+DATA_PATH = D:\pycharm\practice\Sonic论文复现\data\toy_cnn_dataset.npz
+X_test shape = (4, 1, 3, 3)
+y_true = [0 1 2 0]
+
+PyTorch logits =
+[[19.      7.125  10.1875]
+ [ 8.5625  1.375   4.875 ]
+ [ 2.3125  0.625   4.5625]
+ [ 9.625   3.375   5.4375]]
+PyTorch pred = [0 0 2 0]
+PyTorch acc = 0.75
+
+MPC logits =
+[[19.      7.125  10.1875]
+ [ 8.5625  1.375   4.875 ]
+ [ 2.3125  0.625   4.5625]
+ [ 9.625   3.375   5.4375]]
+MPC pred = [0 0 2 0]
+MPC acc = 0.75
+
+abs_error =
+[[0. 0. 0.]
+ [0. 0. 0.]
+ [0. 0. 0.]
+ [0. 0. 0.]]
+max_abs_error = 0.0
+CNN dataset accuracy test PASSED ✅
+
+========== Party0 CNN Dataset Accuracy Profiler ==========
+bytes_sent        : 55138661
+bytes_recv        : 55138104
+total_comm_bytes  : 110276765
+
+----- Message Counts -----
+send_messages     : 1821
+recv_messages     : 1819
+total_messages    : 3640
+
+----- Offline Materials -----
+offline_arith_triples : 580
+offline_bit_triples   : 600
+
+----- Call Counts -----
+secure_mul_calls  : 78
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 16.362063
+online_time       : 0.340220
+secure_mul_time   : 0.129488
+bit_and_time      : 0.199463
+b2a_time          : 0.113700
+a2b_time          : 0.106556
+trunc_time        : 0.221720
+relu_time         : 0.099220
+linear_time       : 0.018699
+total_time        : 16.702779
+====================================
+
+
+[PASS] Dataset CNN Accuracy
+
+================================================================================
+[RUN] Secure MaxPool2D
+================================================================================
+===== Secure MaxPool2D Test =====
+X_plain =
+[[[[ 1 -2]
+   [ 5  3]]]]
+Y_expected =
+[[[[5]]]]
+Y_mpc =
+[[[[5]]]]
+Secure MaxPool2D test PASSED ✅
+
+========== Party0 Secure MaxPool2D Profiler ==========
+bytes_sent        : 476715
+bytes_recv        : 476576
+total_comm_bytes  : 953291
+
+----- Message Counts -----
+send_messages     : 717
+recv_messages     : 715
+total_messages    : 1432
+
+----- Offline Materials -----
+offline_arith_triples : 80
+offline_bit_triples   : 300
+
+----- Call Counts -----
+secure_mul_calls  : 6
+bit_and_calls     : 192
+b2a_calls         : 3
+a2b_calls         : 0
+trunc_calls       : 0
+relu_calls        : 0
+linear_calls      : 0
+
+----- Time Cost (seconds) -----
+offline_time      : 0.439685
+online_time       : 0.291557
+secure_mul_time   : 0.016437
+bit_and_time      : 0.268929
+b2a_time          : 0.015723
+a2b_time          : 0.000000
+trunc_time        : 0.000000
+relu_time         : 0.000000
+linear_time       : 0.000000
+total_time        : 0.731539
+====================================
+
+
+[PASS] Secure MaxPool2D
+
+================================================================================
+[RUN] Fixed-point CNN with MaxPool2D
+================================================================================
+===== Fixed-point Secret CNN with MaxPool2D Test =====
+X_plain =
+[[[[0.5 1.  1.5]
+   [2.  2.5 3. ]
+   [3.5 4.  4.5]]]]
+conv_expected =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+act_expected =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+pool_expected =
+[[[[7.25]]]]
+flat_expected =
+[[7.25]]
+Y_expected =
+[[15.]]
+Y_mpc =
+[[15.]]
+abs_error =
+[[0.]]
+Fixed-point Secret CNN with MaxPool2D test PASSED ✅
+
+========== Party0 Fixed-point Secret CNN with MaxPool2D Profiler ==========
+bytes_sent        : 5191028
+bytes_recv        : 5190633
+total_comm_bytes  : 10381661
+
+----- Message Counts -----
+send_messages     : 2528
+recv_messages     : 2526
+total_messages    : 5054
+
+----- Offline Materials -----
+offline_arith_triples : 480
+offline_bit_triples   : 720
+
+----- Call Counts -----
+secure_mul_calls  : 77
+bit_and_calls     : 384
+b2a_calls         : 68
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 2.659545
+online_time       : 0.702634
+secure_mul_time   : 0.066266
+bit_and_time      : 0.619117
+b2a_time          : 0.066615
+a2b_time          : 0.235664
+trunc_time        : 0.302427
+relu_time         : 0.131316
+linear_time       : 0.001385
+total_time        : 3.362532
+====================================
+
+
+[PASS] Fixed-point CNN with MaxPool2D
+
+================================================================================
+[RUN] Secure AvgPool2D
+================================================================================
+===== Secure AvgPool2D Test =====
+X_plain =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+Y_expected =
+[[[[5.25]]]]
+Y_mpc =
+[[[[5.25]]]]
+abs_error =
+[[[[0.]]]]
+Secure AvgPool2D test PASSED ✅
+
+========== Party0 Secure AvgPool2D Profiler ==========
+bytes_sent        : 431527
+bytes_recv        : 431395
+total_comm_bytes  : 862922
+
+----- Message Counts -----
+send_messages     : 615
+recv_messages     : 613
+total_messages    : 1228
+
+----- Offline Materials -----
+offline_arith_triples : 80
+offline_bit_triples   : 120
+
+----- Call Counts -----
+secure_mul_calls  : 32
+bit_and_calls     : 64
+b2a_calls         : 32
+a2b_calls         : 1
+trunc_calls       : 1
+relu_calls        : 0
+linear_calls      : 0
+
+----- Time Cost (seconds) -----
+offline_time      : 0.438658
+online_time       : 0.062003
+secure_mul_time   : 0.008494
+bit_and_time      : 0.049839
+b2a_time          : 0.009618
+a2b_time          : 0.051405
+trunc_time        : 0.061802
+relu_time         : 0.000000
+linear_time       : 0.000000
+total_time        : 0.500982
+====================================
+
+
+[PASS] Secure AvgPool2D
+
+================================================================================
+[RUN] Secure Argmax
+================================================================================
+===== Secure Argmax Test =====
+logits_plain =
+[[10  3  7]
+ [-5 -2 -9]
+ [ 1  8  4]
+ [ 6  2 11]]
+expected_idx = [0 1 1 2]
+mpc_idx      = [0 1 1 2]
+expected_max = [10 -2  8 11]
+mpc_max      = [10 -2  8 11]
+Secure Argmax test PASSED ✅
+
+========== Party0 Secure Argmax Profiler ==========
+bytes_sent        : 2328306
+bytes_recv        : 2328177
+total_comm_bytes  : 4656483
+
+----- Message Counts -----
+send_messages     : 653
+recv_messages     : 651
+total_messages    : 1304
+
+----- Offline Materials -----
+offline_arith_triples : 120
+offline_bit_triples   : 300
+
+----- Call Counts -----
+secure_mul_calls  : 6
+bit_and_calls     : 128
+b2a_calls         : 2
+a2b_calls         : 0
+trunc_calls       : 0
+relu_calls        : 0
+linear_calls      : 0
+
+----- Time Cost (seconds) -----
+offline_time      : 1.085915
+online_time       : 0.197077
+secure_mul_time   : 0.002952
+bit_and_time      : 0.188854
+b2a_time          : 0.001861
+a2b_time          : 0.000000
+trunc_time        : 0.000000
+relu_time         : 0.000000
+linear_time       : 0.000000
+total_time        : 1.283345
+====================================
+
+
+[PASS] Secure Argmax
+
+================================================================================
+[RUN] CNN Secure Argmax Accuracy
+================================================================================
+
+================================================================================
+[RUN] Pre-script: run/make_toy_dataset.py
+================================================================================
+Saved dataset to: D:\pycharm\practice\Sonic论文复现\data\toy_cnn_dataset.npz
+X_test shape: (4, 1, 3, 3)
+y_test shape: (4,)
+
+[PASS] Pre-script: run/make_toy_dataset.py
+===== CNN Secure Argmax Accuracy Test =====
+DATA_PATH = D:\pycharm\practice\Sonic论文复现\data\toy_cnn_dataset.npz
+X_test shape = (4, 1, 3, 3)
+y_true = [0 1 2 0]
+
+PyTorch logits =
+[[19.      7.125  10.1875]
+ [ 8.5625  1.375   4.875 ]
+ [ 2.3125  0.625   4.5625]
+ [ 9.625   3.375   5.4375]]
+PyTorch pred = [0 0 2 0]
+PyTorch acc = 0.75
+
+MPC secure pred = [0 0 2 0]
+MPC secure acc = 0.75
+
+PyTorch max logits = [19.      8.5625  4.5625  9.625 ]
+MPC secure max     = [19.      8.5625  4.5625  9.625 ]
+max_abs_error      = [0. 0. 0. 0.]
+CNN secure argmax accuracy test PASSED ✅
+
+========== Party0 CNN Secure Argmax Accuracy Profiler ==========
+bytes_sent        : 58195622
+bytes_recv        : 58195060
+total_comm_bytes  : 116390682
+
+----- Message Counts -----
+send_messages     : 2471
+recv_messages     : 2469
+total_messages    : 4940
+
+----- Offline Materials -----
+offline_arith_triples : 740
+offline_bit_triples   : 960
+
+----- Call Counts -----
+secure_mul_calls  : 84
+bit_and_calls     : 320
+b2a_calls         : 67
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 20.642172
+online_time       : 0.811632
+secure_mul_time   : 0.141842
+bit_and_time      : 0.650991
+b2a_time          : 0.123275
+a2b_time          : 0.163127
+trunc_time        : 0.287051
+relu_time         : 0.219453
+linear_time       : 0.005838
+total_time        : 21.454244
+====================================
+
+
+[PASS] CNN Secure Argmax Accuracy
+
+================================================================================
+[RUN] Secure BatchNorm / SBN
+================================================================================
+===== Secure BatchNorm / SBN Test =====
+X_plain =
+[[[[ 1.   -2.  ]
+   [ 3.5   4.  ]]
+
+  [[-1.    2.  ]
+   [ 0.5  -0.25]]]]
+eps1_plain = [ 2.  -1.5]
+eps2_plain = [0.25 0.5 ]
+Y_expected =
+[[[[ 2.25  -3.75 ]
+   [ 7.25   8.25 ]]
+
+  [[ 2.    -2.5  ]
+   [-0.25   0.875]]]]
+Y_mpc =
+[[[[ 2.25  -3.75 ]
+   [ 7.25   8.25 ]]
+
+  [[ 2.    -2.5  ]
+   [-0.25   0.875]]]]
+abs_error =
+[[[[0. 0.]
+   [0. 0.]]
+
+  [[0. 0.]
+   [0. 0.]]]]
+Secure BatchNorm / SBN test PASSED ✅
+
+========== Party0 Secure BatchNorm / SBN Profiler ==========
+bytes_sent        : 9583815
+bytes_recv        : 9583619
+total_comm_bytes  : 19167434
+
+----- Message Counts -----
+send_messages     : 616
+recv_messages     : 614
+total_messages    : 1230
+
+----- Offline Materials -----
+offline_arith_triples : 260
+offline_bit_triples   : 420
+
+----- Call Counts -----
+secure_mul_calls  : 33
+bit_and_calls     : 64
+b2a_calls         : 32
+a2b_calls         : 1
+trunc_calls       : 1
+relu_calls        : 0
+linear_calls      : 0
+
+----- Time Cost (seconds) -----
+offline_time      : 3.526696
+online_time       : 0.089748
+secure_mul_time   : 0.008968
+bit_and_time      : 0.076265
+b2a_time          : 0.009473
+a2b_time          : 0.077745
+trunc_time        : 0.088947
+relu_time         : 0.000000
+linear_time       : 0.000000
+total_time        : 3.616840
+====================================
+
+
+[PASS] Secure BatchNorm / SBN
+
+================================================================================
+[RUN] Fixed-point CNN with SBN
+================================================================================
+===== Fixed-point Secret CNN with SBN Test =====
+X_plain =
+[[[[0.5 1.  1.5]
+   [2.  2.5 3. ]
+   [3.5 4.  4.5]]]]
+conv_expected =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+bn_expected =
+[[[[ 5.5  7.5]
+   [11.5 13.5]]]]
+act_expected =
+[[[[ 5.5  7.5]
+   [11.5 13.5]]]]
+flat_expected =
+[[ 5.5  7.5 11.5 13.5]]
+Y_expected =
+[[24.875]]
+Y_mpc =
+[[24.875]]
+abs_error =
+[[0.]]
+Fixed-point Secret CNN with SBN test PASSED ✅
+
+========== Party0 Fixed-point Secret CNN with SBN Profiler ==========
+bytes_sent        : 11410733
+bytes_recv        : 11410358
+total_comm_bytes  : 22821091
+
+----- Message Counts -----
+send_messages     : 1914
+recv_messages     : 1912
+total_messages    : 3826
+
+----- Offline Materials -----
+offline_arith_triples : 760
+offline_bit_triples   : 1180
+
+----- Call Counts -----
+secure_mul_calls  : 107
+bit_and_calls     : 256
+b2a_calls         : 97
+a2b_calls         : 3
+trunc_calls       : 3
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 4.899658
+online_time       : 0.532541
+secure_mul_time   : 0.078133
+bit_and_time      : 0.440607
+b2a_time          : 0.075950
+a2b_time          : 0.321164
+trunc_time        : 0.398939
+relu_time         : 0.127420
+linear_time       : 0.005027
+total_time        : 5.432608
+====================================
+
+
+[PASS] Fixed-point CNN with SBN
+
+================================================================================
+[RUN] Sonic Optimized CNN SBN-MaxPool-SReLU
+================================================================================
+===== Sonic Optimized CNN: SBN -> MaxPool -> SReLU Test =====
+X_plain =
+[[[[0.5 1.  1.5]
+   [2.  2.5 3. ]
+   [3.5 4.  4.5]]]]
+conv_expected =
+[[[[3.25 4.25]
+   [6.25 7.25]]]]
+bn_expected =
+[[[[-2.75 -1.75]
+   [ 0.25  1.25]]]]
+pool_expected =
+[[[[1.25]]]]
+act_expected =
+[[[[1.25]]]]
+flat_expected =
+[[1.25]]
+Y_expected =
+[[3.]]
+Y_mpc =
+[[3.]]
+abs_error =
+[[0.]]
+Sonic optimized CNN SBN-MaxPool-SReLU test PASSED ✅
+
+========== Party0 Sonic Optimized CNN Profiler ==========
+bytes_sent        : 13421732
+bytes_recv        : 13421245
+total_comm_bytes  : 26842977
+
+----- Message Counts -----
+send_messages     : 2625
+recv_messages     : 2623
+total_messages    : 5248
+
+----- Offline Materials -----
+offline_arith_triples : 1060
+offline_bit_triples   : 1900
+
+----- Call Counts -----
+secure_mul_calls  : 110
+bit_and_calls     : 448
+b2a_calls         : 100
+a2b_calls         : 3
+trunc_calls       : 3
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 5.932976
+online_time       : 0.603607
+secure_mul_time   : 0.134100
+bit_and_time      : 0.450888
+b2a_time          : 0.118649
+a2b_time          : 0.230861
+trunc_time        : 0.350418
+relu_time         : 0.092307
+linear_time       : 0.002130
+total_time        : 6.536990
+====================================
+
+
+[PASS] Sonic Optimized CNN SBN-MaxPool-SReLU
+
+================================================================================
+FINAL TEST SUMMARY
+================================================================================
+MODE   : functional
+PASSED : 21
+FAILED : 0
+ALL SELECTED TESTS PASSED ✅
+================================================================================
+
+进程已结束，退出代码为 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+二、python run/run_all_tests.py paper
+paper 模式用于补充论文 M1/M2/C1/C2 完整模型推理开销
+
+   2.28017033e-03 -6.70227979e-04  4.06874809e-04  2.77868297e-04
+   7.64438417e-04 -2.44652783e-03]]
+
+MPC logits =
+[[ 0.00073242 -0.00024414  0.00024414  0.00146484  0.00219727 -0.00073242
+   0.00024414  0.00024414  0.00073242 -0.00244141]]
+
+abs_error =
+[[1.54002686e-04 2.24910191e-04 1.56291935e-05 1.09868357e-04
+  8.29047058e-05 6.21938962e-05 1.62734184e-04 3.37276724e-05
+  3.20165418e-05 5.12157567e-06]]
+max_abs_error = 0.00022491019080916885
+PyTorch pred = [4]
+MPC pred     = [4]
+Sonic M2 MPC functional test PASSED ✅
+
+========== Party0 Sonic M2 MPC Profiler ==========
+bytes_sent        : 38354142
+bytes_recv        : 38088680
+total_comm_bytes  : 76442822
+
+----- Message Counts -----
+send_messages     : 2149
+recv_messages     : 2148
+total_messages    : 4297
+
+----- Offline Materials -----
+offline_arith_triples : 1720
+offline_bit_triples   : 1720
+
+----- Call Counts -----
+secure_mul_calls  : 1059
+bit_and_calls     : 1088
+b2a_calls         : 265
+a2b_calls         : 8
+trunc_calls       : 8
+relu_calls        : 3
+linear_calls      : 4
+
+----- Time Cost (seconds) -----
+offline_time      : 1.229144
+online_time       : 4.134197
+secure_mul_time   : 1.903380
+bit_and_time      : 1.977662
+b2a_time          : 0.426154
+a2b_time          : 0.714889
+trunc_time        : 1.133913
+relu_time         : 0.432450
+linear_time       : 1.575571
+total_time        : 5.366032
+====================================
+
+
+[PASS] Sonic M2 Paper Model MPC
+
+================================================================================
+[RUN] Sonic C1 Paper Model MPC
+================================================================================
+===== Sonic C1 MPC Functional Test =====
+scale_bits = 12
+Input shape = (1, 3, 32, 32)
+PyTorch output shape = (1, 10)
+MPC output shape = (1, 10)
+
+PyTorch logits =
+[[-2.21455746e-04  1.08964792e-04 -1.65854624e-04  1.12306494e-04
+  -1.88492340e-04 -2.15767999e-04 -5.10757018e-05 -3.24376277e-04
+  -5.88007642e-05 -7.18786978e-05]]
+
+MPC logits =
+[[-0.00024414  0.         -0.00024414  0.         -0.00024414 -0.00024414
+  -0.00024414 -0.00048828 -0.00024414 -0.00024414]]
+
+abs_error =
+[[2.26848788e-05 1.08964792e-04 7.82860006e-05 1.12306494e-04
+  5.56482846e-05 2.83726258e-05 1.93064923e-04 1.63904973e-04
+  1.85339861e-04 1.72261927e-04]]
+max_abs_error = 0.00019306492322357371
+PyTorch pred = [3]
+MPC pred     = [1]
+
+----- Check Result -----
+shape_ok     = True
+logits_close = True
+pred_same    = False
+Sonic C1 MPC structure/logits test PASSED ✅
+But prediction is not identical due to fixed-point quantization ⚠️
+
+========== Party0 Sonic C1 MPC Profiler ==========
+bytes_sent        : 971221424
+bytes_recv        : 969616860
+total_comm_bytes  : 1940838284
+
+----- Message Counts -----
+send_messages     : 6031
+recv_messages     : 6030
+total_messages    : 12061
+
+----- Offline Materials -----
+offline_arith_triples : 4440
+offline_bit_triples   : 2090
+
+----- Call Counts -----
+secure_mul_calls  : 4173
+bit_and_calls     : 1856
+b2a_calls         : 525
+a2b_calls         : 16
+trunc_calls       : 16
+relu_calls        : 7
+linear_calls      : 8
+
+----- Time Cost (seconds) -----
+offline_time      : 8.465402
+online_time       : 21.976031
+secure_mul_time   : 14.879289
+bit_and_time      : 4.642437
+b2a_time          : 2.359409
+a2b_time          : 2.801327
+trunc_time        : 5.332624
+relu_time         : 1.382286
+linear_time       : 13.759867
+total_time        : 30.449658
+====================================
+
+
+[PASS] Sonic C1 Paper Model MPC
+
+================================================================================
+[RUN] Sonic C2 Paper Model MPC
+================================================================================
+===== Sonic C2 MPC Functional Test =====
+scale_bits = 12
+Input shape = (1, 3, 32, 32)
+PyTorch output shape = (1, 10)
+MPC output shape = (1, 10)
+
+PyTorch logits =
+[[ 3.23001927e-07  3.40901352e-07 -1.03322157e-06  4.22579120e-07
+  -2.41664935e-07  1.12803082e-06 -8.18411934e-07 -3.75481299e-08
+   1.10353611e-07  5.54497944e-07]]
+
+MPC logits =
+[[0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]]
+
+abs_error =
+[[3.23001927e-07 3.40901352e-07 1.03322157e-06 4.22579120e-07
+  2.41664935e-07 1.12803082e-06 8.18411934e-07 3.75481299e-08
+  1.10353611e-07 5.54497944e-07]]
+max_abs_error = 1.1280308171990328e-06
+PyTorch pred = [5]
+MPC pred     = [0]
+
+----- Check Result -----
+shape_ok     = True
+logits_close = True
+pred_same    = False
+Sonic C2 MPC structure/logits test PASSED ✅
+But prediction is not identical due to fixed-point quantization.
+
+========== Party0 Sonic C2 MPC Profiler ==========
+bytes_sent        : 393341249
+bytes_recv        : 392581806
+total_comm_bytes  : 785923055
+
+----- Message Counts -----
+send_messages     : 5371
+recv_messages     : 5370
+total_messages    : 10741
+
+----- Offline Materials -----
+offline_arith_triples : 4660
+offline_bit_triples   : 3320
+
+----- Call Counts -----
+secure_mul_calls  : 2937
+bit_and_calls     : 2432
+b2a_calls         : 658
+a2b_calls         : 20
+trunc_calls       : 20
+relu_calls        : 9
+linear_calls      : 10
+
+----- Time Cost (seconds) -----
+offline_time      : 2.604712
+online_time       : 7.613290
+secure_mul_time   : 4.338909
+bit_and_time      : 2.443745
+b2a_time          : 1.403102
+a2b_time          : 1.185073
+trunc_time        : 2.636816
+relu_time         : 0.659712
+linear_time       : 3.234609
+total_time        : 10.220327
+====================================
+
+
+[PASS] Sonic C2 Paper Model MPC
+
+================================================================================
+FINAL TEST SUMMARY
+================================================================================
+MODE   : paper
+PASSED : 4
+FAILED : 0
+ALL SELECTED TESTS PASSED ✅
+================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+三、python run/run_all_tests.py benchmark
+benchmark 脚本，主要用于更系统地统计 batch MLP / CNN 相关开销
+
+(.venv) PS D:\pycharm\practice\Sonic论文复现> python run/run_all_tests.py benchmark
+
+================================================================================
+[RUN] MLP Batch Benchmark
+================================================================================
+
+===== Batch Benchmark Result =====
+batch_size = 1
+Y_expected =
+[[1.]]
+Y_mpc =
+[[1.]]
+max_abs_error = 0.0
+PASSED ✅
+
+========== Party0 Benchmark batch=1 ==========
+bytes_sent        : 1801098
+bytes_recv        : 1800827
+total_comm_bytes  : 3601925
+
+----- Message Counts -----
+send_messages     : 1297
+recv_messages     : 1295
+total_messages    : 2592
+
+----- Offline Materials -----
+offline_arith_triples : 240
+offline_bit_triples   : 400
+
+----- Call Counts -----
+secure_mul_calls  : 70
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 1.496863
+online_time       : 0.280078
+secure_mul_time   : 0.072618
+bit_and_time      : 0.194419
+b2a_time          : 0.072592
+a2b_time          : 0.129794
+trunc_time        : 0.207266
+relu_time         : 0.070460
+linear_time       : 0.001928
+total_time        : 1.777802
+====================================
+
+
+===== Batch Benchmark Result =====
+batch_size = 2
+Y_expected =
+[[ 1. ]
+ [23.5]]
+Y_mpc =
+[[ 1. ]
+ [23.5]]
+max_abs_error = 0.0
+PASSED ✅
+
+========== Party0 Benchmark batch=2 ==========
+bytes_sent        : 3459142
+bytes_recv        : 3458863
+total_comm_bytes  : 6918005
+
+----- Message Counts -----
+send_messages     : 1297
+recv_messages     : 1295
+total_messages    : 2592
+
+----- Offline Materials -----
+offline_arith_triples : 240
+offline_bit_triples   : 400
+
+----- Call Counts -----
+secure_mul_calls  : 70
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 5.085784
+online_time       : 0.394560
+secure_mul_time   : 0.101009
+bit_and_time      : 0.272940
+b2a_time          : 0.103397
+a2b_time          : 0.219864
+trunc_time        : 0.326749
+relu_time         : 0.064534
+linear_time       : 0.003016
+total_time        : 5.482248
+====================================
+
+
+===== Batch Benchmark Result =====
+batch_size = 4
+Y_expected =
+[[ 1.  ]
+ [23.5 ]
+ [ 1.75]
+ [ 4.  ]]
+Y_mpc =
+[[ 1.  ]
+ [23.5 ]
+ [ 1.75]
+ [ 4.  ]]
+max_abs_error = 0.0
+PASSED ✅
+
+========== Party0 Benchmark batch=4 ==========
+bytes_sent        : 6775230
+bytes_recv        : 6774926
+total_comm_bytes  : 13550156
+
+----- Message Counts -----
+send_messages     : 1297
+recv_messages     : 1295
+total_messages    : 2592
+
+----- Offline Materials -----
+offline_arith_triples : 240
+offline_bit_triples   : 400
+
+----- Call Counts -----
+secure_mul_calls  : 70
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 8.442116
+online_time       : 0.425085
+secure_mul_time   : 0.088020
+bit_and_time      : 0.314678
+b2a_time          : 0.089981
+a2b_time          : 0.195582
+trunc_time        : 0.289167
+relu_time         : 0.132078
+linear_time       : 0.003676
+total_time        : 8.869643
+====================================
+
+
+===== Batch Benchmark Result =====
+batch_size = 8
+Y_expected =
+[[ 1.  ]
+ [23.5 ]
+ [ 1.75]
+ [ 4.  ]
+ [ 8.75]
+ [ 9.  ]
+ [ 4.  ]
+ [ 0.  ]]
+Y_mpc =
+[[ 1.  ]
+ [23.5 ]
+ [ 1.75]
+ [ 4.  ]
+ [ 8.75]
+ [ 9.  ]
+ [ 4.  ]
+ [ 0.  ]]
+max_abs_error = 0.0
+PASSED ✅
+
+========== Party0 Benchmark batch=8 ==========
+bytes_sent        : 13407373
+bytes_recv        : 13407026
+total_comm_bytes  : 26814399
+
+----- Message Counts -----
+send_messages     : 1297
+recv_messages     : 1295
+total_messages    : 2592
+
+----- Offline Materials -----
+offline_arith_triples : 240
+offline_bit_triples   : 400
+
+----- Call Counts -----
+secure_mul_calls  : 70
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 15.074211
+online_time       : 0.539413
+secure_mul_time   : 0.143157
+bit_and_time      : 0.384080
+b2a_time          : 0.132037
+a2b_time          : 0.171838
+trunc_time        : 0.305310
+relu_time         : 0.219944
+linear_time       : 0.014069
+total_time        : 15.616186
+====================================
+
+
+Benchmark CSV saved to: results\benchmark.csv
+
+===== Benchmark Summary =====
+batch=1, passed=True, offline=1.4969s, online=0.2801s, comm=3601925 bytes
+batch=2, passed=True, offline=5.0858s, online=0.3946s, comm=6918005 bytes
+batch=4, passed=True, offline=8.4421s, online=0.4251s, comm=13550156 bytes
+batch=8, passed=True, offline=15.0742s, online=0.5394s, comm=26814399 bytes
+
+[PASS] MLP Batch Benchmark
+
+================================================================================
+[RUN] CNN Batch Benchmark
+================================================================================
+
+===== PyTorch CNN Batch Benchmark =====
+batch_size = 1
+PyTorch Y =
+[[13.75]]
+MPC Y =
+[[13.75]]
+max_abs_error = 0.0
+PASSED ✅
+
+========== Party0 PyTorch CNN Benchmark batch=1 ==========
+bytes_sent        : 5261952
+bytes_recv        : 5261653
+total_comm_bytes  : 10523605
+
+----- Message Counts -----
+send_messages     : 1817
+recv_messages     : 1815
+total_messages    : 3632
+
+----- Offline Materials -----
+offline_arith_triples : 460
+offline_bit_triples   : 480
+
+----- Call Counts -----
+secure_mul_calls  : 74
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 7.513846
+online_time       : 0.688295
+secure_mul_time   : 0.242441
+bit_and_time      : 0.424546
+b2a_time          : 0.191544
+a2b_time          : 0.246889
+trunc_time        : 0.441540
+relu_time         : 0.202950
+linear_time       : 0.042574
+total_time        : 8.203304
+====================================
+
+
+===== PyTorch CNN Batch Benchmark =====
+batch_size = 2
+PyTorch Y =
+[[13.75]
+ [ 6.25]]
+MPC Y =
+[[13.75]
+ [ 6.25]]
+max_abs_error = 0.0
+PASSED ✅
+
+========== Party0 PyTorch CNN Benchmark batch=2 ==========
+bytes_sent        : 10331566
+bytes_recv        : 10331194
+total_comm_bytes  : 20662760
+
+----- Message Counts -----
+send_messages     : 1817
+recv_messages     : 1815
+total_messages    : 3632
+
+----- Offline Materials -----
+offline_arith_triples : 460
+offline_bit_triples   : 480
+
+----- Call Counts -----
+secure_mul_calls  : 74
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 12.890755
+online_time       : 0.499359
+secure_mul_time   : 0.087680
+bit_and_time      : 0.390020
+b2a_time          : 0.072719
+a2b_time          : 0.260953
+trunc_time        : 0.325693
+relu_time         : 0.152271
+linear_time       : 0.020317
+total_time        : 13.390903
+====================================
+
+
+===== PyTorch CNN Batch Benchmark =====
+batch_size = 4
+PyTorch Y =
+[[13.75 ]
+ [ 6.25 ]
+ [-1.375]
+ [ 7.25 ]]
+MPC Y =
+[[13.75 ]
+ [ 6.25 ]
+ [-1.375]
+ [ 7.25 ]]
+max_abs_error = 0.0
+PASSED ✅
+
+========== Party0 PyTorch CNN Benchmark batch=4 ==========
+bytes_sent        : 20470811
+bytes_recv        : 20470297
+total_comm_bytes  : 40941108
+
+----- Message Counts -----
+send_messages     : 1817
+recv_messages     : 1815
+total_messages    : 3632
+
+----- Offline Materials -----
+offline_arith_triples : 460
+offline_bit_triples   : 480
+
+----- Call Counts -----
+secure_mul_calls  : 74
+bit_and_calls     : 192
+b2a_calls         : 65
+a2b_calls         : 2
+trunc_calls       : 2
+relu_calls        : 1
+linear_calls      : 2
+
+----- Time Cost (seconds) -----
+offline_time      : 10.278118
+online_time       : 0.549352
+secure_mul_time   : 0.147100
+bit_and_time      : 0.390567
+b2a_time          : 0.136646
+a2b_time          : 0.269022
+trunc_time        : 0.406930
+relu_time         : 0.138157
+linear_time       : 0.003735
+total_time        : 10.827973
+====================================
+
+
+CNN benchmark CSV saved to: results\cnn_benchmark.csv
+
+===== CNN Benchmark Summary =====
+batch=1, passed=True, offline=7.5138s, online=0.6883s, comm=10523605 bytes, messages=3632
+batch=2, passed=True, offline=12.8908s, online=0.4994s, comm=20662760 bytes, messages=3632
+batch=4, passed=True, offline=10.2781s, online=0.5494s, comm=40941108 bytes, messages=3632
+
+[PASS] CNN Batch Benchmark
+
+================================================================================
+FINAL TEST SUMMARY
+================================================================================
+MODE   : benchmark
+PASSED : 2
+FAILED : 0
+ALL SELECTED TESTS PASSED ✅
+================================================================================
+
+
+
+
+
+
+
+
+
+
+
+四、python run/run_all_tests.py summary
+整理 benchmark 结果，生成汇总文件
+
+(.venv) PS D:\pycharm\practice\Sonic论文复现> python run/run_all_tests.py summary
+
+================================================================================
+[RUN] MLP Benchmark Markdown Summary
+================================================================================
+Markdown summary saved to: results/benchmark_summary.md
+
+[PASS] MLP Benchmark Markdown Summary
+
+================================================================================
+[RUN] CNN Benchmark Markdown Summary
+================================================================================
+CNN benchmark markdown summary saved to: results/cnn_benchmark_summary.md
+
+[PASS] CNN Benchmark Markdown Summary
+
+================================================================================
+FINAL TEST SUMMARY
+================================================================================
+MODE   : summary
+PASSED : 2
+FAILED : 0
+ALL SELECTED TESTS PASSED ✅
+================================================================================
+
+
