@@ -1,0 +1,217 @@
+一、矩阵乘法优化相关文件
+
+1. mpc/matmul_secret.py
+------------------------------------------------------------
+实现矩阵级安全矩阵乘法 secure_matmul。
+原始实现中，矩阵乘法往往被拆成很多个元素级 secure_mul，每次 secure_mul 都需要交互打开 e=x-a 和 f=y-b，导致通信被切得比较碎。
+新增矩阵级 Beaver triple 思路：
+    C = A @ B
+    E = X - A
+    F = W - B
+    Z = C + E @ B + A @ F + E @ F
+其中 A、B 是随机矩阵掩码，C=A@B；E 和 F 可以公开，因为它们被随机矩阵掩码保护。这样矩阵乘法不再逐元素通信，而是将通信集中到矩阵级打开 E、F 上。
+
+
+2. mpc/matmul_plan.py
+------------------------------------------------------------
+该文件用于自动生成矩阵级 Beaver triple 所需的 matmul_plan。
+在 secure_matmul 中，需要提前准备矩阵 triple：
+    A.shape = X.shape
+    B.shape = W.shape
+    C = A @ B
+本文件提供了工具函数，根据 Linear 或 Conv2D 的输入输出形状自动生成对应的矩阵 triple 计划。
+主要功能包括：
+1. build_linear_matmul_plan：
+   根据全连接层 X.shape 和 W.shape 生成矩阵 triple plan。
+2. build_conv2d_matmul_plan：
+   根据 Conv2D 的输入形状、卷积核形状、stride、padding，计算 im2col 后的 X_col.shape 和 W_mat.shape，并生成对应的 matmul_plan。
+3. merge_matmul_plans：
+   合并多个 matmul_plan，如果形状相同则合并 count。
+
+
+3. mpc/triple_pool.py
+------------------------------------------------------------
+该文件用于管理 Beaver triple 缓存池。
+原始 triple_pool 主要管理两类 triple：
+1. arithmetic triple：用于 secure_mul；
+2. bit triple：用于 bit_and、secure compare 等。
+本次优化中，扩展了第三类：
+3. matmul triple：用于矩阵级 secure_matmul。
+新增的矩阵 triple pool 以：
+    key = (x_shape, w_shape)
+作为索引，缓存形如：
+    (A_i, B_i, C_i)
+的矩阵 triple share。
+
+
+4. mpc/triple_dealer.py
+------------------------------------------------------------
+在测试阶段生成 Beaver triple。
+本次优化中，扩展了矩阵级 Beaver triple 的 trusted dealer 生成方式。对于矩阵乘法：
+    Z = X @ W
+dealer 会生成：
+    A, B, C
+    C = A @ B
+然后把 A、B、C 分别拆成两方 arithmetic share，放入 matmul triple pool 中。
+
+
+5. net/profiler.py
+------------------------------------------------------------
+用于统计通信开销、调用次数和运行时间。
+本次优化中，补充了与矩阵乘法、PPA、trunc 优化相关的统计项，例如：
+    secure_matmul_calls
+    secure_matmul_time
+    offline_matmul_triples
+    ppa_msb_calls
+    ppa_levels
+    ppa_msb_time
+
+
+二、PPA 大小比较优化相关文件
+
+6. mpc/compare_ppa.py
+实现 PPA 版 secure MSB，也就是大小比较优化的核心文件。
+原来的 secure MSB 使用逐位 carry 传播：
+    carry_0 -> carry_1 -> ... -> carry_31
+每一位依赖上一位，复杂度为 O(l)，其中 l 是环的位长。
+本文件使用 PPA（Parallel Prefix Adder，并行前缀加法器）思想，基于 generate / propagate：
+    G_i = a_i AND b_i
+    P_i = a_i XOR b_i
+然后按 step 分层合并：
+    step = 1, 2, 4, 8, 16
+对于 32 位环，大约 5 层即可完成 carry 传播，理论复杂度由 O(l) 降为 O(log l)。
+
+
+7. mpc/srelu_ppa.py
+------------------------------------------------------------
+将 PPA 版 secure MSB 接入 SReLU。
+Sonic 中 Secure ReLU 的核心公式为：
+    ReLU(x) = NOT(MSB(x)) * x
+原来的 SReLU 调用的是逐位 carry 版本 secure_compare_zero。
+本文件中的 srelu_ppa 调用的是 compare_ppa.py 中的 secure_compare_zero_ppa。
+流程为：
+1. 使用 secure_compare_zero_ppa 得到 gate 的 Boolean share；
+2. 使用 B2A 将 gate 从 Boolean share 转成 arithmetic share；
+3. 使用 secure_mul 计算 gate * x；
+4. 得到 ReLU(x) 的 arithmetic share。
+
+
+
+三、secure truncation 批量化优化相关文件
+
+8. mpc/trunc_batched.py
+------------------------------------------------------------
+实现批量化 secure truncation。
+原来的 trunc 过程通常是：
+1. A2B 得到 32 个 bit；
+2. 右移并处理符号位；
+3. 每一位分别做 B2A；
+4. 再按权重 2^j 重组。
+这样会导致 B2A 被切成多次调用，通信比较零散。
+
+新增 secure_trunc_batched，优化思路为：
+1. A2B 得到所有 bit；
+2. 将 signed right shift 后的 bit 整理成一个张量；
+3. 一次性对 32 个 bit 做 batched B2A；
+4. 使用 NumPy 向量化方式重组结果。
+
+
+四、矩阵乘法优化测试文件
+
+9. run/test_secure_matmul_multi_server0.py
+------------------------------------------------------------
+多形状 secure_matmul 测试的 server0 端。
+它构造了多组不同形状的矩阵乘法测试，例如：
+1. 小型线性层矩阵；
+2. batch=2 的矩阵乘法；
+3. batch=4 的矩阵乘法。
+
+server0 负责：
+1. 构造明文矩阵 X、W；
+2. 生成 matmul_plan；
+3. 对 X、W 做 arithmetic secret sharing；
+4. 持有 party0 的 share；
+5. 调用 secure_matmul；
+6. 接收 server1 的输出 share；
+7. 重构结果并与明文矩阵乘法结果对比。
+
+
+10. run/test_secure_matmul_multi_server1.py
+------------------------------------------------------------
+多形状 secure_matmul 测试的 server1 端。
+
+server1 负责：
+1. 监听连接；
+2. 接收 server0 发来的配置和 party1 share；
+3. 使用相同 matmul_plan 生成 party1 的矩阵 triple share；
+4. 调用 secure_matmul；
+5. 将输出 share 发回 server0。
+
+
+五、PPA SReLU 测试文件
+
+11. run/test_srelu_ppa_server0.py
+------------------------------------------------------------
+ PPA 版 SReLU 测试的 server0 端。
+
+测试输入包含正数、0 和负数，例如：
+    [[5, 0, -3, 12, -9]]
+
+server0 负责：
+1. 将明文整数映射到 Z_(2^32) 环；
+2. 做 arithmetic secret sharing；
+3. 根据 PPA secure MSB 需要的 bit_and 形状生成 bit_plan；
+4. 调用 srelu_ppa；
+5. 接收 server1 的输出 share；
+6. 重构结果并与明文 ReLU 结果对比。
+
+预期结果为：
+    [[5, 0, 0, 12, 0]]
+
+
+12. run/test_srelu_ppa_server1.py
+------------------------------------------------------------
+PPA 版 SReLU 测试的 server1 端。
+
+server1 负责：
+1. 监听连接；
+2. 接收 arith_plan 和 bit_plan；
+3. 生成 party1 所需的 triple；
+4. 接收 x1 share；
+5. 调用 srelu_ppa；
+6. 将 y1 share 发回 server0。
+
+
+六、batched trunc 测试文件
+
+13. run/test_trunc_batched_server0.py
+------------------------------------------------------------
+batched secure truncation 测试的 server0 端。
+
+测试思路：
+1. 构造 fixed-point 明文数据；
+2. 先按较高 scale，即 2^(2f)，进行编码；
+3. 调用 secure_trunc_batched 右移 f 位；
+4. 按 2^f 解码；
+5. 检查是否恢复到原明文值附近。
+
+server0 负责：
+1. 构造明文数据；
+2. 编码和 secret sharing；
+3. 准备 arith_plan 和 bit_plan；
+4. 调用 secure_trunc_batched；
+5. 重构并解码结果；
+6. 输出 abs_error 和 profiler。
+
+
+14. run/test_trunc_batched_server1.py
+------------------------------------------------------------
+ batched secure truncation 测试的 server1 端。
+
+server1 负责：
+1. 监听连接；
+2. 接收 trunc 测试配置；
+3. 生成 party1 所需 triple；
+4. 接收 x1 share；
+5. 调用 secure_trunc_batched；
+6. 将 y1 share 发回 server0。
