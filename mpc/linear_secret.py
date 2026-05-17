@@ -1,77 +1,167 @@
 import numpy as np
+
 from mpc.share import MOD
-from mpc.triple import get_arith_triple
+from mpc.triple import (
+    get_arith_triple,
+    get_matmul_triple,
+    has_available_matmul_triple,
+)
 from mpc.mul import secure_mul
+from mpc.matmul_secret import secure_matmul
 from net.profiler import inc, time_block
+
+
+def _ring_add(x, y):
+    """
+    Z_(2^32) 环上的加法。
+    """
+    return ((x.astype(np.uint64) + y.astype(np.uint64)) % MOD).astype(np.uint32)
+
+
+def _linear_secret_weight_old_loop(x_i, w_i, b_i, conn, party_id):
+    """
+    旧版安全线性层实现。
+
+    思路：
+        按照矩阵乘法公式逐项展开：
+            Y[:, j] = sum_k X[:, k] * W[k, j]
+
+    每一项 X[:,k] * W[k,:] 都调用 secure_mul。
+    这个版本功能正确，但通信会被切得比较碎。
+    """
+    batch, in_dim = x_i.shape
+    _, out_dim = w_i.shape
+
+    y_i = np.zeros((batch, out_dim), dtype=np.uint32)
+
+    for k in range(in_dim):
+        x_part = x_i[:, k:k + 1]
+        w_part = w_i[k:k + 1, :]
+
+        x_term = np.repeat(x_part, out_dim, axis=1)
+        w_term = np.repeat(w_part, batch, axis=0)
+
+        triple_i = get_arith_triple(
+            conn=conn,
+            party_id=party_id,
+            shape=x_term.shape
+        )
+
+        prod_i = secure_mul(
+            xi=x_term,
+            yi=w_term,
+            triple_i=triple_i,
+            conn=conn,
+            party_id=party_id
+        )
+
+        y_i = _ring_add(y_i, prod_i)
+
+    if b_i is not None:
+        y_i = _ring_add(y_i, b_i.reshape(1, -1))
+
+    return y_i.astype(np.uint32)
+
+
+def _linear_secret_weight_matmul(x_i, w_i, b_i, conn, party_id):
+    """
+    优化版安全线性层实现。
+
+    思路：
+        使用矩阵级 Beaver triple，直接完成：
+            Y = X @ W
+
+    offline 阶段准备矩阵 triple：
+        A, B, C
+        C = A @ B
+
+    online 阶段只需要打开：
+        E = X - A
+        F = W - B
+
+    然后本地计算：
+        Y = C + E@B + A@F + E@F
+
+    相比旧版逐项 secure_mul，这个版本可以把矩阵乘法的通信合并起来。
+    """
+    triple_i = get_matmul_triple(
+        conn=conn,
+        party_id=party_id,
+        x_shape=x_i.shape,
+        w_shape=w_i.shape
+    )
+
+    y_i = secure_matmul(
+        x_i=x_i,
+        w_i=w_i,
+        triple_i=triple_i,
+        conn=conn,
+        party_id=party_id
+    )
+
+    if b_i is not None:
+        y_i = _ring_add(y_i, b_i.reshape(1, -1))
+
+    return y_i.astype(np.uint32)
 
 
 def linear_secret_weight(x_i, w_i, b_i, conn, party_id):
     """
     秘密权重安全线性层：
-
         Y = XW + b
 
     X、W、b 都是 arithmetic share。
 
-    这个函数对应 MPC 版本中的安全全连接层。
-    和公开权重线性层不同，这里输入 X、权重 W、偏置 b 都处于秘密分享状态，
-    因此矩阵乘法中的每一项乘法都需要通过 secure_mul 来完成。
+    当前实现包含两种路径：
+
+    1. 优化路径：
+        如果 triple_pool 中已经准备了矩阵 triple，
+        就调用 secure_matmul()，使用矩阵级 Beaver triple 完成 X@W。
+
+    2. 兼容路径：
+        如果没有准备矩阵 triple，
+        就退回原来的逐项 secure_mul 版本，
+        确保旧测试脚本仍然可以运行。
+
+    这样改的好处：
+        先保证原有功能不被破坏；
+        后续只要在 offline 阶段加入 matmul_plan，
+        就可以自动走矩阵级安全乘法路径。
     """
-    # 记录安全线性层调用次数，方便统计整体推理中线性层的协议开销。
     inc("linear_secret_calls")
 
-    # 统计安全线性层运行时间。
     with time_block("linear_secret_time"):
-        # batch 表示样本数量，in_dim 表示输入维度。
-        batch, in_dim = x_i.shape
+        x_i = x_i.astype(np.uint32)
+        w_i = w_i.astype(np.uint32)
 
-        # w_i 的形状为 [in_dim, out_dim]。
-        # out_dim 表示当前线性层输出维度。
-        _, out_dim = w_i.shape
+        if b_i is not None:
+            b_i = b_i.astype(np.uint32)
 
-        # 初始化输出 share。
-        # 最终 y_i 的形状为 [batch, out_dim]。
-        y_i = np.zeros((batch, out_dim), dtype=np.uint32)
+        if len(x_i.shape) != 2 or len(w_i.shape) != 2:
+            raise ValueError(
+                f"linear_secret_weight expects 2D matrices, "
+                f"got x_i.shape={x_i.shape}, w_i.shape={w_i.shape}"
+            )
 
-        # 按照矩阵乘法公式逐项累加：
-        #   Y[:, j] = sum_k X[:, k] * W[k, j]
-        #
-        # 因为 X 和 W 都是秘密分享，所以每一项乘法都要调用安全乘法协议。
-        for k in range(in_dim):
-            # 取出输入矩阵第 k 列，形状为 [batch, 1]。
-            x_part = x_i[:, k:k+1]
+        if x_i.shape[1] != w_i.shape[0]:
+            raise ValueError(
+                f"invalid matrix shapes for XW: "
+                f"x_i.shape={x_i.shape}, w_i.shape={w_i.shape}"
+            )
 
-            # 取出权重矩阵第 k 行，形状为 [1, out_dim]。
-            w_part = w_i[k:k+1, :]
-
-            # 为了让 x_part 和 w_part 能按元素做安全乘法，
-            # 这里把 x_part 扩展成 [batch, out_dim]。
-            x_term = np.repeat(x_part, out_dim, axis=1)
-
-            # 同理，把 w_part 扩展成 [batch, out_dim]。
-            w_term = np.repeat(w_part, batch, axis=0)
-
-            # 为当前这一批乘法生成 Beaver triple。
-            triple_i = get_arith_triple(conn, party_id, x_term.shape)
-
-            # 安全计算 X[:, k] * W[k, :]。
-            prod_i = secure_mul(
-                xi=x_term,
-                yi=w_term,
-                triple_i=triple_i,
+        if has_available_matmul_triple(x_i.shape, w_i.shape):
+            return _linear_secret_weight_matmul(
+                x_i=x_i,
+                w_i=w_i,
+                b_i=b_i,
                 conn=conn,
                 party_id=party_id
             )
 
-            # 将当前 k 对应的乘积结果累加到输出中。
-            # 所有加法都在 Z_(2^32) 环上完成。
-            y_i = (y_i.astype(np.uint64) + prod_i.astype(np.uint64)) % MOD
-            y_i = y_i.astype(np.uint32)
-
-        # 加上 bias。
-        # 这里 b_i 本身也是 arithmetic share，因此两方都加自己的那一份即可。
-        if b_i is not None:
-            y_i = (y_i.astype(np.uint64) + b_i.reshape(1, -1).astype(np.uint64)) % MOD
-            y_i = y_i.astype(np.uint32)
-
-        return y_i
+        return _linear_secret_weight_old_loop(
+            x_i=x_i,
+            w_i=w_i,
+            b_i=b_i,
+            conn=conn,
+            party_id=party_id
+        )
