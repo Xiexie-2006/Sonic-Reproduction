@@ -1,0 +1,246 @@
+老师给了我三点优化建议：
+1. 矩阵乘法现在可能是三层 for 循环，每次循环都调用一次 secure_mul，每次 secure_mul 都需要一轮通信打开 e、f。老师建议可以生成矩阵级三元组 A、B、C=A@B，然后用 E=X-A、F=W-B，Z=C+E@B+A@F+E@F 来减少通信轮次。
+2. 大小比较现在是逐位加法，Sonic 论文中提出的是并行方法，将复杂度从 O(l) 降到 O(log l)，这里的 l 是环的位长。
+3. 效率方面可以考虑将计算和通信分开，不让通信把计算切得太碎。除了矩阵乘法，trunc 等操作也可以类似优化。
+请你帮我把这三个建议拆成可执行的代码优化路线。要求：
+- 每一步先说明原始问题；
+- 再说明优化原理；
+- 再说明应该新增或修改哪些文件；
+- 再说明如何设计测试脚本验证；
+- 最后说明如何向老师汇报当前完成程度。
+
+
+
+我不希望一次性把原有 functional、paper、benchmark 全部改崩。请你帮我制定一个稳妥方案。
+要求：
+1. 原来的 compare.py、trunc.py 等稳定版本先保留；
+2. 新增优化版文件做独立验证；
+3. 单项测试通过后再考虑是否接入完整网络；
+4. 汇报时明确说明“核心验证版”，不要夸大成“全项目完全优化”；
+5. 每个优化都要有能截图的 PASS 和 profiler 指标。
+
+
+
+请你帮我设计三步优化的评价指标。
+要求：
+1. 矩阵乘法优化要看 secure_matmul_calls、offline_matmul_triples、total_comm_bytes、online_time；
+2. PPA 优化要看 bit_and_calls、ppa_msb_calls、ppa_levels；
+3. trunc 批量化要看 b2a_calls、trunc_calls、abs_error；
+4. 每个测试都要同时验证功能正确性和优化路径是否真的被调用；
+5. 不要只看 PASS，要结合 profiler 判断优化是否生效。
+
+
+
+第一步：矩阵乘法优化提示词
+
+老师建议矩阵乘法可以采用和 Beaver 乘法类似的方法实现，生成矩阵三元组 A、B、C=A@B，然后用 E=X-A、F=W-B，Z=C+E@B+A@F+E@F。
+请你帮我详细推导这个公式为什么正确，并说明它和普通 secure_mul 的对应关系。
+要求：
+1. 从 X@W = (A+E)@(B+F) 开始推导；
+2. 展开得到 A@B + E@B + A@F + E@F；
+3. 用 C=A@B 替换 A@B；
+4. 说明为什么 E、F 可以公开；
+5. 说明为什么 E@F 只需要一方加一次；
+6. 说明它相比逐元素 secure_mul 如何减少通信切分。
+
+请你帮我新增 mpc/matmul_secret.py，实现矩阵级 Beaver triple 安全矩阵乘法 secure_matmul。
+具体要求：
+1. 输入 x_i、w_i 是当前 party 持有的 arithmetic share；
+2. triple_i = (A_i, B_i, C_i)，完整 triple 满足 C=A@B；
+3. 计算 E_i = X_i - A_i，F_i = W_i - B_i；
+4. 双方通过 socket 交换 E_i 和 F_i，重构公开 E 和 F；
+5. 使用 Z_i = C_i + E@B_i + A_i@F 计算当前方输出 share；
+6. 公开项 E@F 只让 party0 加一次，避免重复加；
+7. 所有计算保持在 Z_(2^32) 环上；
+8. 核心矩阵乘法使用 NumPy 的 @ 操作，不要手写三层 for 循环；
+9. profiler 统计 secure_matmul_calls 和 secure_matmul_time；
+10. 加必要注释，说明这对应矩阵级 Beaver triple。
+
+现在 secure_matmul 需要矩阵级 Beaver triple。请你帮我扩展 mpc/triple_pool.py。
+要求：
+1. 保留原来的 arithmetic triple pool 和 bit triple pool；
+2. 新增 matmul triple pool；
+3. matmul triple 的 key 使用 (x_shape, w_shape)；
+4. 支持 push / pop 矩阵 triple；
+5. 支持 has_matmul_triple，用于判断 linear_secret_weight 是否走优化路径；
+6. 不破坏原来的 secure_mul、bit_and、functional 测试；
+7. 注释中说明矩阵 triple 满足 C=A@B。
+
+请你帮我扩展 mpc/triple.py。
+要求：
+1. 保留 get_arith_triple 和 get_bit_triple；
+2. 新增 get_matmul_triple(conn, party_id, x_shape, w_shape)；
+3. 新增 has_available_matmul_triple(x_shape, w_shape)；
+4. 接口保持和原来风格一致；
+5. 注释说明矩阵 triple 用于 secure_matmul、SFC、SCONV。
+
+请你帮我扩展 mpc/triple_dealer.py，使其支持 trusted dealer 方式生成矩阵 Beaver triple。
+要求：
+1. 输入 matmul_plan，格式为 (x_shape, w_shape, count)；
+2. 随机生成 A 和 B；
+3. 使用 NumPy 的 @ 计算 C = A @ B；
+4. 将 A、B、C 分别做 arithmetic sharing；
+5. party0 和 party1 分别拿到 (A_i, B_i, C_i)；
+6. 将矩阵 triple 放入 matmul triple pool；
+7. profiler 统计 offline_matmul_triples；
+8. 当前作为功能验证的 trusted dealer 版本，不需要说成最终安全 offline 协议。
+
+请你帮我修改 net/profiler.py。
+要求：
+1. 新增 secure_matmul_calls；
+2. 新增 secure_matmul_time；
+3. 新增 offline_matmul_triples；
+4. print_report 中能打印这些指标；
+5. 运行测试时能够通过这些指标判断 secure_matmul 是否真的被调用。
+
+请你帮我修改 mpc/linear_secret.py，让 linear_secret_weight 支持优化路径和兼容路径。
+要求：
+1. 如果存在对应 shape 的 matmul triple，则优先调用 secure_matmul；
+2. 如果没有 matmul triple，则退回旧版逐项 secure_mul；
+3. 保证原有 functional 测试不受影响；
+4. secure_matmul 路径输出结果要和旧版一致；
+5. profiler 中 linear_secret_calls 保持统计；
+6. 注释说明这样设计是为了先做代表性验证，避免一次性全局改动。
+
+请你帮我修改 run/test_secret_linear_server0.py 和 run/test_secret_linear_server1.py。
+要求：
+1. 测试 Y = X@W + b；
+2. X.shape = (1,2)，W.shape = (2,2)；
+3. 使用 setup_triple_pool_by_dealer；
+4. 添加 matmul_plan = [((1,2),(2,2),1)]；
+5. 确认 linear_secret_weight 走 secure_matmul；
+6. 输出结果和明文 expected 一致；
+7. profiler 中能看到 offline_matmul_triples=1、secure_matmul_calls=1。
+
+请你帮我修改 fixed-point Conv2D 测试，让 SCONV 也能走矩阵级 secure_matmul。
+背景：
+conv2d_secret 的逻辑是 im2col -> linear_secret_weight -> reshape。
+所以只要给 im2col 后的 X_col@W_mat 准备矩阵 triple，Conv2D 就能走 secure_matmul。
+要求：
+1. 根据 X.shape、W.shape、stride、padding 推导 out_h、out_w；
+2. 推导 x_col.shape = (N*out_h*out_w, C_in*kH*kW)；
+3. 推导 w_mat.shape = (C_in*kH*kW, C_out)；
+4. 在 matmul_plan 中加入对应 shape；
+5. 跑通 Fixed-point Secret Conv2D；
+6. profiler 中显示 secure_matmul_calls=1、offline_matmul_triples=1；
+7. 输出和明文卷积结果一致。
+
+请你帮我新增 mpc/matmul_plan.py，用于自动生成矩阵 triple plan。
+要求：
+1. build_linear_matmul_plan 根据 X.shape 和 W.shape 生成 plan；
+2. conv2d_output_shape 根据 NCHW 输入和 OIHW 卷积核计算输出 shape；
+3. build_conv2d_matmul_plan 根据 Conv2D 的输入、权重、stride、padding 生成 im2col 后的 matmul plan；
+4. merge_matmul_plans 可以合并多个 plan；
+5. 目的是避免每个测试都手动写 matmul_plan，让矩阵乘法优化更通用。
+
+请你帮我新增多形状 secure_matmul 测试。
+要求：
+1. 新增 run/test_secure_matmul_multi_server0.py 和 run/test_secure_matmul_multi_server1.py；
+2. 构造多个不同 shape 的矩阵乘法；
+3. 包括不同 batch、不同输入维度、不同输出维度；
+4. 使用 matmul_plan.py 自动生成 plan；
+5. 两方分别调用 secure_matmul；
+6. 重构结果与明文 NumPy @ 结果对比；
+7. profiler 中看到 secure_matmul_calls=3、offline_matmul_triples=3；
+8. 证明 secure_matmul 不是只适用于一个固定例子。
+
+
+第二步：PPA 大小比较优化提示词
+老师指出我现在大小比较是逐位加法，Sonic 论文中提出并行方法，将复杂度从 O(l) 降到 O(log l)。
+请你帮我解释这个问题，并设计 PPA 版 secure MSB。
+要求：
+1. 说明原来的逐位 carry 为什么是 O(l)；
+2. 说明 PPA / Parallel Prefix Adder 的思想；
+3. 定义 G_i = a_i AND b_i，P_i = a_i XOR b_i；
+4. 说明 step=1、2、4、8、16 如何分层合并；
+5. 说明 32 位下大约 5 层；
+6. 说明为什么这是 O(log l)；
+7. 先新增独立文件，不直接替换原 compare.py。
+
+请你帮我新增 mpc/compare_ppa.py。
+要求：
+1. secure_msb_ppa 能提取 x=x0+x1 mod 2^32 的 MSB；
+2. party0 贡献 x0 的 bit，party1 贡献 x1 的 bit；
+3. 初始 propagate：p_i = a_i XOR b_i；
+4. 初始 generate：g_i = a_i AND b_i；
+5. generate 需要调用 bit_and；
+6. PPA 合并公式：
+   G = G_high OR (P_high AND G_low)
+   P = P_high AND P_low
+7. 每一层尽量批量调用 bit_and，而不是逐 bit 调用；
+8. 输出 secure_compare_zero_ppa；
+9. 提供 build_ppa_bit_plan，生成对应 bit triple plan；
+10. profiler 统计 ppa_msb_calls、ppa_levels、ppa_msb_time。
+
+请你帮我新增 mpc/srelu_ppa.py。
+要求：
+1. 使用 secure_compare_zero_ppa 替代旧版 secure_compare_zero；
+2. 公式保持 ReLU(x)=NOT(MSB(x))*x；
+3. 先得到 gate_bool；
+4. 用 b2a_secure 将 gate_bool 转成 arithmetic share；
+5. 用 secure_mul 计算 gate*x；
+6. 输出 arithmetic share；
+7. profiler 保留 relu_calls 和 relu_time。
+
+请你帮我新增 run/test_srelu_ppa_server0.py 和 run/test_srelu_ppa_server1.py。
+要求：
+1. 输入包含正数、0、负数，例如 [[5,0,-3,12,-9]]；
+2. 使用 build_ppa_bit_plan 生成 bit_plan；
+3. 调用 srelu_ppa；
+4. 重构结果与明文 ReLU 对比；
+5. 输出 SReLU PPA test PASSED；
+6. profiler 中显示 ppa_msb_calls=1、ppa_levels=5；
+7. profiler 中 bit_and_calls 应从旧版约 64 降到 11。
+
+现在 PPA SReLU 已经跑通。请你帮我判断是否需要马上把原来的 compare.py 全局替换成 compare_ppa.py。
+要求：
+1. 区分“技术核心验证”和“全项目系统集成”；
+2. 说明为什么不建议直接全局替换；
+3. 说明 functional、paper、benchmark 中很多 triple plan 是按旧版 compare 准备的；
+4. 说明直接替换可能导致 Boolean triple pool exhausted 或 shape mismatch；
+5. 给出稳妥说法：保留 compare.py，新增 compare_ppa.py 做独立验证；
+6. 说明 MaxPool、Argmax 接入 PPA 属于后续推广。
+
+
+第三步：secure truncation 批量化优化提示词
+
+老师提到除了矩阵乘法，trunc 等操作也可以类似优化，调整执行顺序，不让通信把计算切得太碎。
+请你帮我分析原 secure_trunc 可能存在的问题。
+要求：
+1. 说明 fixed-point 乘法后为什么需要 trunc；
+2. 说明原 trunc 可能先 A2B 得到 32 个 bit；
+3. 说明如果每一位单独 B2A，会造成多次通信；
+4. 说明可以把 32 个 bit 打包成张量，一次性 B2A；
+5. 说明这是“计算和通信分开、批量化通信”的思想。
+
+请你帮我新增 mpc/trunc_batched.py，实现 secure_trunc_batched。
+要求：
+1. 输入 xi 是 arithmetic share；
+2. shift_bits 表示右移位数；
+3. 调用 a2b_bits 得到所有 bit；
+4. 处理 signed arithmetic right shift，负数高位补 sign bit；
+5. 将 shifted_bits 组织成 shape=(32,*value_shape) 的张量；
+6. 一次性调用 b2a_secure；
+7. 用 NumPy 向量化重组 sum(bit_j * 2^j)；
+8. 输出 arithmetic share；
+9. profiler 统计 trunc_calls 和 trunc_time；
+10. 暂时不替换原 trunc.py。
+
+请你帮我新增 run/test_trunc_batched_server0.py 和 run/test_trunc_batched_server1.py。
+要求：
+1. 构造 fixed-point 小数，包括正数和负数；
+2. 先按照 2^(2f) 编码，模拟乘法后高尺度结果；
+3. 调用 secure_trunc_batched 右移 f 位；
+4. 按 2^f 解码；
+5. 与明文 x_plain 对比 abs_error；
+6. 输出 Batched secure truncation test PASSED；
+7. profiler 中显示 trunc_calls=1；
+8. profiler 中显示 b2a_calls=1，说明不再逐 bit 多次 B2A。
+
+现在 secure_trunc_batched 单项测试通过。请你帮我分析是否要马上替换原来的 trunc.py。
+要求：
+1. 说明 batched trunc 技术方案已经验证；
+2. 说明原 functional/paper/benchmark 的 triple plan 可能是按旧版 trunc 准备的；
+3. 说明直接替换可能导致 triple shape 不匹配；
+4. 说明当前保留 trunc.py、新增 trunc_batched.py 更稳妥；
+5. 说明后续可以逐步把 fixed-point MLP/CNN 中的 trunc 切到 batched 版本。
